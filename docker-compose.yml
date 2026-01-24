@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  ros2-humble:
+    image: osrf/ros:humble-desktop-full
+    container_name: ros2-humble
+    stdin_open: true
+    tty: true
+    volumes:
+      - .:/root/ros2_workspace
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+    command: bash -c "source /opt/ros/humble/setup.bash && bash"
+    networks:
+      - ros2-network
+
+networks:
+  ros2-network:
+    driver: bridge
