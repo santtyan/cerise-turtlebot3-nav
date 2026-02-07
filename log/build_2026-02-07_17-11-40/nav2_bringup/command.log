@@ -1,6 +1,0 @@
-Invoking command in '/home/yan/ros2_workspace/build/nav2_bringup': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/yan/ros2_workspace/src/navigation2/nav2_bringup -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/yan/ros2_workspace/install/nav2_bringup
-Invoked command in '/home/yan/ros2_workspace/build/nav2_bringup' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/yan/ros2_workspace/src/navigation2/nav2_bringup -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/yan/ros2_workspace/install/nav2_bringup
-Invoking command in '/home/yan/ros2_workspace/build/nav2_bringup': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/yan/ros2_workspace/build/nav2_bringup -- -j12 -l12
-Invoked command in '/home/yan/ros2_workspace/build/nav2_bringup' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/yan/ros2_workspace/build/nav2_bringup -- -j12 -l12
-Invoking command in '/home/yan/ros2_workspace/build/nav2_bringup': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /home/yan/ros2_workspace/build/nav2_bringup
-Invoked command in '/home/yan/ros2_workspace/build/nav2_bringup' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /home/yan/ros2_workspace/build/nav2_bringup
