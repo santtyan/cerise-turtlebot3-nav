@@ -141,3 +141,7 @@ Remote: Pending (authentication needed)
 - robot2: (0, -0.5) → (-1.0, -1.0) → **SUCCEEDED**
 - Navigation time: ~13s
 - No recoveries needed
+
+## Known Limitations
+- **4-robot launch**: Requires Gazebo GUI in separate terminal (headless spawn fails)
+- **Workaround**: Use 2-robot validated baseline (`antigua` branch)
