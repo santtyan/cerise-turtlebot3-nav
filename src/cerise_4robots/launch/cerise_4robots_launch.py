@@ -29,9 +29,6 @@ def generate_launch_description():
         default=os.path.join(bringup_dir, 'rviz', 'nav2_namespaced_view.rviz'))
     
     # Gazebo
-    start_gazebo_cmd = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(launch_dir, 'gazebo_launch.py')),
-        launch_arguments={'world': world}.items())
     
     # Robot SDFs
     robot_sdf = os.path.join(bringup_dir, 'worlds', 'waffle.model')
@@ -116,7 +113,7 @@ def generate_launch_description():
         DeclareLaunchArgument('use_composition', default_value='False'),
         DeclareLaunchArgument('use_respawn', default_value='False'),
         
-        start_gazebo_cmd,
+        
         spawn_robot1_cmd, robot1_localization, robot1_navigation,
         spawn_robot2_cmd, robot2_localization, robot2_navigation,
         spawn_robot3_cmd, robot3_localization, robot3_navigation,
