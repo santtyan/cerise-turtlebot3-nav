@@ -133,3 +133,11 @@ Remote: Pending (authentication needed)
 ---
 
 **Last Updated**: 2026-02-07 18:15 BRT
+
+## Validated Tests
+
+### 2-Robot Navigation (2026-02-07)
+- robot1: (0, 0.5) → (1.0, 1.0) → **SUCCEEDED**
+- robot2: (0, -0.5) → (-1.0, -1.0) → **SUCCEEDED**
+- Navigation time: ~13s
+- No recoveries needed
