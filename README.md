@@ -21,3 +21,8 @@ See branch `antiga` for working 2-robot setup.
 ## Team
 - Researcher: Yan (CERISE Lab/UFG)
 - Advisor: Prof. Alisson Assis Cardoso
+
+## Troubleshooting
+**Gazebo port conflict**: `killall -9 gzserver gzclient`
+**AMCL initialpose**: `./set_initialposes.sh`
+**RViz crash**: Use `use_rviz:=False`
