@@ -14,7 +14,7 @@ class DemandGenerator(Node):
     def __init__(self):
         super().__init__('demand_generator')
         self.pub = self.create_publisher(String, '/demands', 10)
-        self.timer = self.create_timer(5.0, self.publish_demand)
+        self.timer = self.create_timer(30.0, self.publish_demand)
         self.demand_id = 0
         self.get_logger().info('DemandGenerator iniciado')
 

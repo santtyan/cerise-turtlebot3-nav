@@ -5,7 +5,8 @@ from nav_msgs.msg import Odometry
 from nav2_msgs.action import NavigateToPose
 from rclpy.action import ActionClient
 from geometry_msgs.msg import PoseStamped
-import json, math, time
+import json, math, time, csv, os
+LOG_FILE = os.path.expanduser('~/cerise_log.csv')
 
 ROBOTS = ['robot1', 'robot2']
 
@@ -23,6 +24,7 @@ class TaskAllocator(Node):
         self.nav_clients = {
             r: ActionClient(self, NavigateToPose, f'/{r}/navigate_to_pose')
             for r in ROBOTS}
+        self.init_csv()
         self.get_logger().info('TaskAllocator iniciado')
 
     def on_odom(self, msg, robot):
@@ -89,8 +91,22 @@ class TaskAllocator(Node):
         latency = time.time() - t0
         did = demand['id']
         self.get_logger().info(f'[LATENCIA] {robot} demanda {did}: {latency:.2f}s')
+        self.log_csv(demand, robot, latency)
         self.busy[robot] = False
         self.try_dispatch()
+
+    def init_csv(self):
+        if not os.path.exists(LOG_FILE):
+            with open(LOG_FILE, 'w', newline='') as f:
+                csv.writer(f).writerow(['timestamp','demand_id','origin','dest','robot','latency_s'])
+
+    def log_csv(self, demand, robot, latency):
+        with open(LOG_FILE, 'a', newline='') as f:
+            csv.writer(f).writerow([
+                time.strftime('%Y-%m-%d %H:%M:%S'),
+                demand['id'], demand['origin'], demand['dest'],
+                robot, round(latency, 2)
+            ])
 
 def main():
     rclpy.init()
