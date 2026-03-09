@@ -13,12 +13,11 @@ RUN apt-get update && apt-get install -y \
 
 # Variáveis de ambiente
 ENV TURTLEBOT3_MODEL=waffle
-ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 ENV GAZEBO_MODEL_PATH=/opt/ros/humble/share/turtlebot3_gazebo/models
 
 WORKDIR /workspace
 
-# Copiar apenas source (ignorar build/install/log)
+# Copiar apenas source
 COPY src /workspace/src
 
 # Build workspace
