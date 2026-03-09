@@ -1,9 +1,8 @@
 FROM osrf/ros:humble-desktop-full
 
-# Evitar prompts interativos
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Instalar dependências Nav2 + TurtleBot3
+# Instalar dependências
 RUN apt-get update && apt-get install -y \
     ros-humble-navigation2 \
     ros-humble-nav2-bringup \
@@ -17,9 +16,10 @@ ENV TURTLEBOT3_MODEL=waffle
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 ENV GAZEBO_MODEL_PATH=/opt/ros/humble/share/turtlebot3_gazebo/models
 
-# Workspace
 WORKDIR /workspace
-COPY . /workspace
+
+# Copiar apenas source (ignorar build/install/log)
+COPY src /workspace/src
 
 # Build workspace
 RUN bash -c "source /opt/ros/humble/setup.bash && \
