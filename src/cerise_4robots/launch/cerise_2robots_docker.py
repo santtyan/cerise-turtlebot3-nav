@@ -12,6 +12,7 @@ def generate_launch_description():
     
     use_sim_time = LaunchConfiguration('use_sim_time', default='true')
     world = os.path.join(pkg_nav2_bringup, 'worlds', 'world_only.model')
+    map_yaml = os.path.join(pkg_nav2_bringup, 'maps', 'turtlebot3_world.yaml')
     
     gzserver_cmd = ExecuteProcess(
         cmd=['gzserver', '--verbose',
@@ -30,7 +31,7 @@ def generate_launch_description():
     nav2_bringup_commands = []
     
     for robot_name, x, y, node_suffix in robots:
-        model_path = os.path.join(pkg_cerise, 'models', f'{robot_name}_waffle.model')
+        model_path = f'/opt/cerise_models/{robot_name}_waffle.model'
         params_file = os.path.join(pkg_cerise, 'params', f'nav2_multirobot_params_{node_suffix}.yaml')
         
         spawn_commands.append(
@@ -64,6 +65,7 @@ def generate_launch_description():
                 launch_arguments={
                     'namespace': robot_name,
                     'use_namespace': 'True',
+                    'map': map_yaml,
                     'use_sim_time': 'true',
                     'params_file': params_file,
                     'autostart': 'true',

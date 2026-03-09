@@ -23,6 +23,7 @@ COPY src /workspace/src
 # Build workspace (skip tests)
 RUN bash -c "source /opt/ros/humble/setup.bash && \
     colcon build --symlink-install --cmake-args -DBUILD_TESTING=OFF"
+RUN mkdir -p /opt/cerise_models && cp /workspace/install/cerise_4robots/share/cerise_4robots/models/*.model /opt/cerise_models/
 
 # Entrypoint
 RUN echo '#!/bin/bash\nset -e\nsource /opt/ros/humble/setup.bash\nsource /workspace/install/setup.bash\nexec "$@"' > /entrypoint.sh && \

@@ -14,6 +14,5 @@ services:
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ./src:/workspace/src:rw
-      - ./install:/workspace/install:rw
     command: >
       bash -c "ros2 launch cerise_4robots cerise_2robots.py"
