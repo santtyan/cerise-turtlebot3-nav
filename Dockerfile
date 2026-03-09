@@ -20,9 +20,9 @@ WORKDIR /workspace
 # Copiar apenas source
 COPY src /workspace/src
 
-# Build workspace
+# Build workspace (skip tests)
 RUN bash -c "source /opt/ros/humble/setup.bash && \
-    colcon build --symlink-install"
+    colcon build --symlink-install --cmake-args -DBUILD_TESTING=OFF"
 
 # Entrypoint
 RUN echo '#!/bin/bash\nset -e\nsource /opt/ros/humble/setup.bash\nsource /workspace/install/setup.bash\nexec "$@"' > /entrypoint.sh && \
