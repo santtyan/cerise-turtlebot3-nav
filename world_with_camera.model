@@ -49,8 +49,7 @@
       </include>
     </model>
 
-  </world>
-<model name="camera_overhead">
+    <model name="camera_overhead">
   <pose>0 0 3 0 1.57 0</pose>
   <static>true</static>
   <link name="camera_link">
@@ -75,13 +74,14 @@
       <visualize>true</visualize>
       <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
         <ros>
-          <remapping>~/image_raw:=/camera/image_raw</remapping>
-          <remapping>~/camera_info:=/camera/camera_info</remapping>
+          <namespace>/camera</namespace>
         </ros>
-        <camera_name>overhead_camera</camera_name>
         <frame_name>camera_overhead</frame_name>
         <hack_baseline>0.07</hack_baseline>
       </plugin>
     </sensor>
   </link>
-</model></sdf>
+    </model>
+
+  </world>
+</sdf>
