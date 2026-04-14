@@ -16,9 +16,9 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from cv_bridge import CvBridge
-import cv2, os, csv, time
-from dataclasses import dataclass, field
-from typing import Optional
+import cv2, os, time
+from dataclasses import dataclass
+from cerise_nav.projection import world_to_pixel
 
 
 @dataclass
@@ -32,7 +32,7 @@ class DatasetCollector(Node):
     def __init__(self):
         super().__init__('dataset_collector')
         self.bridge = CvBridge()
-        self.poses: dict[str, RobotPose] = {
+        self.poses = {
             'robot1': RobotPose(),
             'robot2': RobotPose(),
         }
@@ -64,25 +64,23 @@ class DatasetCollector(Node):
         if now - self.last_save < self.save_interval:
             return
         if not all(p.updated for p in self.poses.values()):
-            return  # aguarda poses de todos os robôs
+            return
 
         frame = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
-        h, w = frame.shape[:2]
-
         img_path = f'dataset/images/{self.frame_id:06d}.jpg'
         ann_path = f'dataset/annotations/{self.frame_id:06d}.txt'
 
         cv2.imwrite(img_path, frame)
 
-        # Anotação YOLO (posição em pixels normalizada — PLACEHOLDER)
-        # TODO: projetar coordenadas mapa→pixel com parâmetros da câmera
+        # Anotação YOLO: projeta poses do mapa para pixel
         with open(ann_path, 'w') as f:
             for idx, (name, pose) in enumerate(self.poses.items()):
-                # cx cy w h normalizados (0-1) — substituir pela projeção real
-                cx, cy, bw, bh = 0.5, 0.5, 0.1, 0.1
-                f.write(f'0 {cx:.4f} {cy:.4f} {bw:.4f} {bh:.4f}\n')
+                cx, cy = world_to_pixel(pose.x, pose.y)
+                # Bounding box width/height fixo (robô ~0.3m de largura em 10x10m mapa = 0.03 normalizado)
+                w, h = 0.05, 0.05
+                f.write(f'{idx} {cx:.4f} {cy:.4f} {w:.4f} {h:.4f}\n')
 
-        self.get_logger().info(f'Frame {self.frame_id} salvo')
+        self.get_logger().info(f'Frame {self.frame_id} salvo: robot1=({self.poses["robot1"].x:.2f}, {self.poses["robot1"].y:.2f}), robot2=({self.poses["robot2"].x:.2f}, {self.poses["robot2"].y:.2f})')
         self.frame_id += 1
         self.last_save = now
 
