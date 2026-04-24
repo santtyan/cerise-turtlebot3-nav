@@ -8,8 +8,8 @@ feita posteriormente via tracking temporal ou coloração diferenciada dos model
 Subscreve:
   /camera/image_raw       -> frames JPG
   /camera/camera_info     -> parâmetros intrínsecos para projeção correta
-  /robot1/amcl_pose       -> pose robot1 no mapa
-  /robot2/amcl_pose       -> pose robot2 no mapa
+  /robot1/odom            -> pose robot1 (não requer Nav2/AMCL)
+  /robot2/odom            -> pose robot2 (não requer Nav2/AMCL)
 
 Grava em:
   dataset/raw/images/NNN.jpg
@@ -22,6 +22,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image, CameraInfo
 from geometry_msgs.msg import PoseWithCovarianceStamped
+from nav_msgs.msg import Odometry
 from cv_bridge import CvBridge
 import cv2, os, time
 from dataclasses import dataclass
@@ -61,9 +62,9 @@ class DatasetCollector(Node):
         self.create_subscription(Image, '/camera/image_raw', self._image_cb, 10)
         for name in self.poses:
             self.create_subscription(
-                PoseWithCovarianceStamped,
-                f'/{name}/amcl_pose',
-                lambda msg, n=name: self._pose_cb(msg, n),
+                Odometry,
+                f'/{name}/odom',
+                lambda msg, n=name: self._odom_cb(msg, n),
                 10,
             )
         self.last_save = 0.0
@@ -73,6 +74,12 @@ class DatasetCollector(Node):
 
     def _camera_info_cb(self, msg: CameraInfo):
         self.camera_info = msg
+
+    def _odom_cb(self, msg: Odometry, name: str):
+        p = msg.pose.pose.position
+        self.poses[name].x = p.x
+        self.poses[name].y = p.y
+        self.poses[name].updated = True
 
     def _pose_cb(self, msg: PoseWithCovarianceStamped, name: str):
         p = msg.pose.pose.position
