@@ -1,113 +1,92 @@
-# CERISE Multi-Robot Nav2 + YOLO Dataset
+# Multi-Robot Autonomous Navigation System
 
-Multi-robot autonomous navigation com ROS2 Humble + Nav2 + TurtleBot3.
-Branch `feature/yolo-dataset`: coleta de dataset para detecção de posição de robôs via YOLO.
+ROS2 Humble + Nav2 + TurtleBot3 multi-robot autonomous navigation for 5G logistics applications.
 
-## Objetivo (Prof. Alisson)
+## Status
 
-1. Simular cenário multi-robô (2x TurtleBot3 Waffle)
-2. Capturar imagens com posições anotadas dos robôs
-3. Treinar YOLO v8 para detectar posição dos robôs pela imagem
-4. Validar gêmeo digital: câmera → inferência → posição estimada
+- ✅ **2 robots**: Fully functional autonomous navigation
+- ⏳ **4 robots**: 75% complete (spawn entity conflict)
 
-## Quick Start (WSL Headless)
+## Requirements
 
+- Ubuntu 22.04
+- ROS2 Humble
+- Nav2
+- TurtleBot3 packages
+- Gazebo 11
+
+## Installation (WSL Ubuntu 22.04)
+
+### 1. Clone & Build
 ```bash
-export TURTLEBOT3_MODEL=waffle
-export GAZEBO_MODEL_DATABASE_URI=""
+git clone https://github.com/santtyan/cerise-turtlebot3-nav.git
+cd cerise-turtlebot3-nav
+
+# Build with colcon
 source /opt/ros/humble/setup.bash
+colcon build --symlink-install
+```
 
-# Terminal 1 - Simulação
-./launch_2robots.sh
+### 2. Source Environment
+```bash
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+```
 
-# Terminal 2 - Poses iniciais
+### 3. Run 2 Robots (Validated ✅)
+```bash
+# Terminal 1: Launch simulation
+ros2 launch nav2_bringup unique_multi_tb3_simulation_launch.py \
+  use_rviz:=False autostart:=true use_composition:=False
+
+# Terminal 2: Wait 20s, then set initial poses
+sleep 20
 ./set_initialposes.sh
 
-# Terminal 3 - Dataset collector
-ros2 run cerise_nav dataset_collector
+# Terminal 2: Send navigation goal
+ros2 action send_goal /robot1/navigate_to_pose nav2_msgs/action/NavigateToPose \
+  "{pose: {header: {frame_id: 'map'}, pose: {position: {x: 1.0, y: 1.0}}}}"
 ```
 
-## Stack
-
-| Componente | Versão |
-|---|---|
-| OS | Ubuntu 22.04 (WSL2 / nativo) |
-| ROS2 | Humble |
-| Gazebo | Classic 11.10.2 |
-| Nav2 | Humble |
-| YOLO | Ultralytics v8 (próx. etapa) |
-
-## Arquitetura
-
-```
-gzserver (headless) → /robot1/odom, scan
-                    → /robot2/odom, scan
-                            │
-                    Nav2 (robot1 + robot2 namespaces)
-                            │
-              demand_generator → task_allocator → NavigateToPose
-                            │
-                  dataset_collector → dataset/images/ + annotations/
-                            │
-                      YOLO v8 training
+### 4. Run 4 Robots (In Development)
+```bash
+ros2 launch cerise_4robots cerise_4robots_launch.py \
+  use_rviz:=False autostart:=true use_composition:=False
 ```
 
-## Avanços
+## Quick Reference Commands
 
-- [x] WSL2 com ROS2 Humble + Gazebo + Nav2
-- [x] gzserver headless funcional (GAZEBO_MODEL_DATABASE_URI fix)
-- [x] Spawn 2 TurtleBots com namespaces /robot1, /robot2
-- [x] Nav2 action server ativo
-- [x] Script launch_2robots.sh (sequência correta gzserver→spawn→nav2)
-- [x] Estrutura dataset_collector.py
-- [ ] Navegação e2e (gzserver crash WSL por OpenGL/ALSA - ver Erros)
-- [ ] Camera overhead no mundo Gazebo
-- [ ] Projeção mapa→pixel para anotações YOLO
+**Set initial poses (manual)**:
+```bash
+# Robot 1
+ros2 topic pub --once /robot1/initialpose geometry_msgs/PoseWithCovarianceStamped \
+  "{header: {frame_id: 'map'}, pose: {pose: {position: {x: 0.0, y: 0.5}}}}"
 
-## Principais Erros e Aprendizados
-
-### 1. spawn_entity timeout
-**Problema**: gzserver baixa modelos da internet, excede timeout 30s do spawn_entity.
-**Fix**: `export GAZEBO_MODEL_DATABASE_URI=` + sequenciar gzserver antes do spawn.
-
-### 2. headless:=True não funciona
-**Problema**: o launch file usa variável `simulator`, não `headless`.
-**Fix**: usar `simulator:=gzserver` OU `launch_2robots.sh`.
-
-### 3. TF namespace multi-robô
-**Problema**: `--ros-args -r __ns:=/robot1` namespeia tópicos mas não frames TF.
-**Fix**: `tb3_simulation_launch.py` com `namespace:=robot1` + remapping `('/tf', 'tf')`.
-
-### 4. gzserver SIGSEGV no WSL2
-**Problema**: câmera de profundidade do waffle tenta inicializar OpenGL sem display.
-**Fix parcial**: modelo `waffle_nodepth.model` sem câmera. Recomendado testar em máquina Ubuntu nativa (INCOMM).
-
-### 5. CycloneDDS ausente
-**Problema**: `rmw_cyclonedds_cpp` não instalado por padrão.
-**Fix**: remover `RMW_IMPLEMENTATION`, usar FastRTPS (padrão Humble).
-
-## Dataset YOLO (Estrutura Planejada)
-
-```
-dataset/
-├── images/          # frames .jpg (1 fps durante navegação)
-└── annotations/     # YOLO format: class cx cy w h (normalizado)
-
-classes.txt → 0: robot
+# Robot 2
+ros2 topic pub --once /robot2/initialpose geometry_msgs/PoseWithCovarianceStamped \
+  "{header: {frame_id: 'map'}, pose: {pose: {position: {x: 0.0, y: -0.5}}}}"
 ```
 
-**TODO**: adicionar câmera overhead (`camera_overhead.world`) no mundo Gazebo e implementar projeção mapa→pixel em `dataset_collector.py`.
-
-## Gitflow
-
-```
-main ──────── 4-robot WIP
-antiga ─────── 2-robot validado (base desta branch)
-feature/yolo-dataset ← VOCÊ ESTÁ AQUI
+**Diagnose ROS2**:
+```bash
+ros2 node list
+ros2 topic list
+ros2 service list
 ```
 
-## Referências
+**Kill all processes**:
+```bash
+pkill -9 gazebo; pkill -9 ros2; pkill -9 gzclient
+```
 
-- [Nav2 Multi-Robot Tutorial](https://navigation.ros.org/tutorials/docs/navigation2_with_multiple_robots.html)
-- [Ultralytics YOLOv8 Docs](https://docs.ultralytics.com/)
-- [TurtleBot3 Simulation](https://emanual.robotis.com/docs/en/platform/turtlebot3/simulation/)
+## Project Structure
+```
+├── src/cerise_4robots/     # 4-robot package (WIP)
+├── setup.sh                # Environment setup
+├── set_initialposes.sh     # Auto initialpose publisher
+└── PROGRESS.md             # Detailed progress log
+```
+
+## License
+
+Apache 2.0
