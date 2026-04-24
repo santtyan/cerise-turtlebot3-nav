@@ -124,7 +124,8 @@ cerise-turtlebot3-nav/
 │   ├── projection.py          # Projeção world→pixel (pinhole + fallback)
 │   ├── demand_generator.py    # Gerador de missões de navegação
 │   └── task_allocator.py      # Alocador de tarefas multi-robô
-├── world_with_camera.model    # Mundo Gazebo com câmera overhead
+├── world_with_camera.model    # Mundo Gazebo com câmera overhead (ATENÇÃO: causa segfault — ver Erros Comuns)
+├── world_simple.model         # Mundo estável para visualização GUI (sem plugin câmera)
 ├── waffle_nodepth.model       # TurtleBot3 sem câmera de profundidade (WSL2)
 ├── launch_2robots.sh          # Headless — sem câmera
 ├── launch_2robots_with_camera.sh  # Headless + câmera overhead
@@ -134,11 +135,57 @@ cerise-turtlebot3-nav/
 └── dataset.yaml               # Configuração YOLO (train/val split)
 ```
 
+## Visualização Gazebo (Linux Nativo)
+
+Para visualizar com GUI no Linux nativo (com mapa + robôs visíveis):
+
+```bash
+export GAZEBO_MODEL_PATH=/opt/ros/humble/share/turtlebot3_gazebo/models:$GAZEBO_MODEL_PATH
+gzserver --verbose -s libgazebo_ros_init.so -s libgazebo_ros_factory.so -e ode ./world_simple.model &
+sleep 20
+ros2 run gazebo_ros spawn_entity.py -entity robot1 -file ./waffle_nodepth.model -robot_namespace robot1 -x 0.0 -y 0.5 -z 0.01 &
+ros2 run gazebo_ros spawn_entity.py -entity robot2 -file ./waffle_nodepth.model -robot_namespace robot2 -x 0.0 -y -0.5 -z 0.01 &
+sleep 10
+export DISPLAY=:0
+gzclient &
+```
+
 ## Erros Comuns
 
 ### `spawn_entity timeout`
 ```bash
 export GAZEBO_MODEL_DATABASE_URI=""   # desativa download de modelos
+```
+
+### `gzserver SIGSEGV` (Segmentation Fault) com `world_with_camera.model`
+**Causa:** O plugin `libgazebo_ros_camera.so` definido em `world_with_camera.model` causa segmentation fault no gzserver ao tentar inicializar o driver de câmera. Isso ocorre tanto no WSL2 (sem display) quanto em Linux nativo, provavelmente por incompatibilidade entre a versão do Gazebo Classic 11 e o plugin ROS2 Humble.
+
+**Solução:** Usar `world_simple.model` para visualização GUI. Ele contém o mapa `turtlebot3_world` com câmera posicionada overhead, mas **sem o plugin ROS** que causava o crash.
+
+```bash
+# Em vez de world_with_camera.model, use:
+gzserver ... ./world_simple.model
+```
+
+### Mapa não aparece no Gazebo (mundo vazio)
+**Causa:** O modelo `turtlebot3_world` não é encontrado porque `GAZEBO_MODEL_PATH` não inclui o diretório de modelos do TurtleBot3.
+
+**Solução:**
+```bash
+export GAZEBO_MODEL_PATH=/opt/ros/humble/share/turtlebot3_gazebo/models:$GAZEBO_MODEL_PATH
+```
+
+### `gzserver EXCEPTION: Unable to start server [bind: Address already in use]`
+**Causa:** Instância anterior do gzserver ainda em execução.
+
+**Solução:**
+```bash
+pkill -9 -f gzserver
+pkill -9 -f gzclient
+pkill -9 -f "ros2 launch"
+pkill -9 -f "ros2 run"
+pkill -9 -f spawn_entity
+sleep 8
 ```
 
 ### `gzserver SIGSEGV` no WSL2
