@@ -9,6 +9,7 @@ setup(
         'console_scripts': [
             'demand_generator = cerise_nav.demand_generator:main',
             'task_allocator = cerise_nav.task_allocator:main',
+            'dataset_collector = cerise_nav.dataset_collector:main',
         ],
     },
 )

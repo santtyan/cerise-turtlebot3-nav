@@ -30,8 +30,8 @@ ros2 run gazebo_ros spawn_entity.py -entity robot1 -file "$WAFFLE" -robot_namesp
 ros2 run gazebo_ros spawn_entity.py -entity robot2 -file "$WAFFLE" -robot_namespace robot2 -x 0.0 -y -0.5 -z 0.01 2>&1 | grep status
 
 echo "[3/4] Nav2..."
-ros2 launch nav2_bringup tb3_simulation_launch.py namespace:=robot1 use_namespace:=True use_simulator:=False use_rviz:=False map:= params_file:= autostart:=true x_pose:=0.0 y_pose:=0.5 > /tmp/nav1_camera.log 2>&1 &
-ros2 launch nav2_bringup tb3_simulation_launch.py namespace:=robot2 use_namespace:=True use_simulator:=False use_rviz:=False map:= params_file:= autostart:=true x_pose:=0.0 y_pose:=-0.5 > /tmp/nav2_camera.log 2>&1 &
+ros2 launch nav2_bringup tb3_simulation_launch.py namespace:=robot1 use_namespace:=True use_simulator:=False use_rviz:=False map:=$MAP params_file:=$P1 autostart:=true x_pose:=0.0 y_pose:=0.5 > /tmp/nav1_camera.log 2>&1 &
+ros2 launch nav2_bringup tb3_simulation_launch.py namespace:=robot2 use_namespace:=True use_simulator:=False use_rviz:=False map:=$MAP params_file:=$P2 autostart:=true x_pose:=0.0 y_pose:=-0.5 > /tmp/nav2_camera.log 2>&1 &
 
 for i in {1..90}; do
   ros2 action list 2>/dev/null | grep -q navigate_to_pose && break

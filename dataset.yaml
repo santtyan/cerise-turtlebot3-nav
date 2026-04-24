@@ -1,6 +1,6 @@
-path: /home/yan/cerise-turtlebot3-nav/dataset
-train: images
-val: images
+path: dataset
+train: images/train
+val: images/val
 
 nc: 1
 names: ['robot']

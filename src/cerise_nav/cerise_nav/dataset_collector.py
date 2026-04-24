@@ -1,24 +1,38 @@
 """
-Dataset collector: grava imagens + posições dos robôs para treino YOLO.
+Dataset collector: grava imagens + anotações YOLO para treino de detecção de robôs.
+
+Uma única classe ('robot') é usada para todos os robôs, pois YOLO não consegue
+distinguir objetos fisicamente idênticos. A identificação robot1/robot2 pode ser
+feita posteriormente via tracking temporal ou coloração diferenciada dos modelos.
 
 Subscreve:
-  /camera/image_raw          → frames JPG
-  /robot1/amcl_pose          → pose robot1 no mapa
-  /robot2/amcl_pose          → pose robot2 no mapa
+  /camera/image_raw       -> frames JPG
+  /camera/camera_info     -> parâmetros intrínsecos para projeção correta
+  /robot1/amcl_pose       -> pose robot1 no mapa
+  /robot2/amcl_pose       -> pose robot2 no mapa
 
 Grava em:
-  dataset/images/NNN.jpg
-  dataset/annotations/NNN.txt  (formato YOLO: class cx cy w h)
+  dataset/raw/images/NNN.jpg
+  dataset/raw/annotations/NNN.txt  (formato YOLO: class cx cy w h normalizados)
+
+Use scripts/split_dataset.py para separar em train/val após a coleta.
 """
 
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CameraInfo
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from cv_bridge import CvBridge
 import cv2, os, time
 from dataclasses import dataclass
-from cerise_nav.projection import world_to_pixel
+from cerise_nav.projection import world_to_pixel_with_camera, robot_bbox_normalized
+
+
+CAMERA_HEIGHT  = 3.0   # metros — deve bater com world_with_camera.model <pose>
+ROBOT_RADIUS   = 0.17  # metros — TurtleBot3 Waffle
+ROBOT_CLASS_ID = 0     # uma classe única: 'robot'
+OUT_IMAGES     = 'dataset/raw/images'
+OUT_LABELS     = 'dataset/raw/annotations'
 
 
 @dataclass
@@ -32,55 +46,78 @@ class DatasetCollector(Node):
     def __init__(self):
         super().__init__('dataset_collector')
         self.bridge = CvBridge()
+        self.camera_info = None
         self.poses = {
             'robot1': RobotPose(),
             'robot2': RobotPose(),
         }
         self.frame_id = 0
-        self.save_interval = 1.0  # segundos entre frames
+        self.save_interval = 1.0
 
-        os.makedirs('dataset/images', exist_ok=True)
-        os.makedirs('dataset/annotations', exist_ok=True)
+        os.makedirs(OUT_IMAGES, exist_ok=True)
+        os.makedirs(OUT_LABELS, exist_ok=True)
 
-        self.create_subscription(Image, '/camera/image_raw', self.image_cb, 10)
+        self.create_subscription(CameraInfo, '/camera/camera_info', self._camera_info_cb, 10)
+        self.create_subscription(Image, '/camera/image_raw', self._image_cb, 10)
         for name in self.poses:
             self.create_subscription(
                 PoseWithCovarianceStamped,
                 f'/{name}/amcl_pose',
-                lambda msg, n=name: self.pose_cb(msg, n),
-                10
+                lambda msg, n=name: self._pose_cb(msg, n),
+                10,
             )
         self.last_save = 0.0
-        self.get_logger().info('DatasetCollector iniciado')
+        self.get_logger().info(
+            f'DatasetCollector iniciado. Saida: {OUT_IMAGES}, {OUT_LABELS}'
+        )
 
-    def pose_cb(self, msg: PoseWithCovarianceStamped, name: str):
+    def _camera_info_cb(self, msg: CameraInfo):
+        self.camera_info = msg
+
+    def _pose_cb(self, msg: PoseWithCovarianceStamped, name: str):
         p = msg.pose.pose.position
         self.poses[name].x = p.x
         self.poses[name].y = p.y
         self.poses[name].updated = True
 
-    def image_cb(self, msg: Image):
+    def _image_cb(self, msg: Image):
         now = time.time()
         if now - self.last_save < self.save_interval:
             return
+        if self.camera_info is None:
+            self.get_logger().warn('Aguardando /camera/camera_info...', throttle_duration_sec=5.0)
+            return
         if not all(p.updated for p in self.poses.values()):
+            self.get_logger().warn('Aguardando poses de todos os robos...', throttle_duration_sec=5.0)
             return
 
         frame = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
-        img_path = f'dataset/images/{self.frame_id:06d}.jpg'
-        ann_path = f'dataset/annotations/{self.frame_id:06d}.txt'
+        w_norm, h_norm = robot_bbox_normalized(CAMERA_HEIGHT, self.camera_info, ROBOT_RADIUS)
 
+        # Coleta anotações apenas dos robôs visíveis (não descarta o frame inteiro)
+        lines = []
+        visible_names = []
+        for name, pose in self.poses.items():
+            result = world_to_pixel_with_camera(pose.x, pose.y, CAMERA_HEIGHT, self.camera_info)
+            if result is None:
+                continue
+            cx, cy = result
+            lines.append(f'{ROBOT_CLASS_ID} {cx:.6f} {cy:.6f} {w_norm:.6f} {h_norm:.6f}')
+            visible_names.append(name)
+
+        if not lines:
+            self.get_logger().warn('Nenhum robo visivel no frame — ignorado')
+            return
+
+        img_path = f'{OUT_IMAGES}/{self.frame_id:06d}.jpg'
+        ann_path = f'{OUT_LABELS}/{self.frame_id:06d}.txt'
         cv2.imwrite(img_path, frame)
-
-        # Anotação YOLO: projeta poses do mapa para pixel
         with open(ann_path, 'w') as f:
-            for idx, (name, pose) in enumerate(self.poses.items()):
-                cx, cy = world_to_pixel(pose.x, pose.y)
-                # Bounding box width/height fixo (robô ~0.3m de largura em 10x10m mapa = 0.03 normalizado)
-                w, h = 0.05, 0.05
-                f.write(f'{idx} {cx:.4f} {cy:.4f} {w:.4f} {h:.4f}\n')
+            f.write('\n'.join(lines) + '\n')
 
-        self.get_logger().info(f'Frame {self.frame_id} salvo: robot1=({self.poses["robot1"].x:.2f}, {self.poses["robot1"].y:.2f}), robot2=({self.poses["robot2"].x:.2f}, {self.poses["robot2"].y:.2f})')
+        self.get_logger().info(
+            f'Frame {self.frame_id:06d} | visiveis={visible_names} | bbox=({w_norm:.3f}x{h_norm:.3f})'
+        )
         self.frame_id += 1
         self.last_save = now
 
