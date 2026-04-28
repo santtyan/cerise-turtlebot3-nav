@@ -97,6 +97,8 @@ class DatasetCollector(Node):
         if not all(p.updated for p in self.poses.values()):
             self.get_logger().warn('Aguardando poses de todos os robos...', throttle_duration_sec=5.0)
             return
+        for p in self.poses.values():
+            p.updated = False
 
         frame = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
         w_norm, h_norm = robot_bbox_normalized(CAMERA_HEIGHT, self.camera_info, ROBOT_RADIUS)
