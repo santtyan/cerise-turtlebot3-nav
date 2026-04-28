@@ -17,7 +17,7 @@ def launch_setup(context, *args, **kwargs):
     """Setup dinâmico do launch."""
 
     pkg_dir = Path(__file__).parent.parent
-    world_file = pkg_dir / "world_with_camera.model"
+    world_file = pkg_dir / "world_with_camera.world"
 
     return [
         # Gazebo com mundo customizado
