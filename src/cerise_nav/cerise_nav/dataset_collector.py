@@ -32,6 +32,10 @@ from cerise_nav.projection import world_to_pixel_with_camera, robot_bbox_normali
 CAMERA_HEIGHT  = 3.0   # metros — deve bater com world_with_camera.model <pose>
 ROBOT_RADIUS   = 0.17  # metros — TurtleBot3 Waffle
 ROBOT_CLASS_ID = 0     # uma classe única: 'robot'
+ROBOT_SPAWN    = {     # offsets de spawn no mundo (deve bater com gazebo_2robots.launch.py)
+    'robot1': (0.0,  0.5),
+    'robot2': (0.0, -0.5),
+}
 OUT_IMAGES     = 'dataset/raw/images'
 OUT_LABELS     = 'dataset/raw/annotations'
 
@@ -77,8 +81,9 @@ class DatasetCollector(Node):
 
     def _odom_cb(self, msg: Odometry, name: str):
         p = msg.pose.pose.position
-        self.poses[name].x = p.x
-        self.poses[name].y = p.y
+        spawn_x, spawn_y = ROBOT_SPAWN[name]
+        self.poses[name].x = p.x + spawn_x
+        self.poses[name].y = p.y + spawn_y
         self.poses[name].updated = True
 
     def _pose_cb(self, msg: PoseWithCovarianceStamped, name: str):
