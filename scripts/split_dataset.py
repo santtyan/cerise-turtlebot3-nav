@@ -56,7 +56,6 @@ def split(ratio: float, seed: int, base: Path, rotate: int) -> tuple:
     rot_map = {90: cv2.ROTATE_90_CLOCKWISE,
                180: cv2.ROTATE_180,
                270: cv2.ROTATE_90_COUNTERCLOCKWISE}
-    rot_cv = rot_map[rotate]
 
     # YOLO v8 espera: {dataset}/images/{split}/ e {dataset}/labels/{split}/
     for split_name, pairs in (('train', train), ('val', val)):
@@ -67,8 +66,9 @@ def split(ratio: float, seed: int, base: Path, rotate: int) -> tuple:
 
         for img, ann in pairs:
             im = cv2.imread(str(img))
-            im_rot = cv2.rotate(im, rot_cv)
-            cv2.imwrite(str(img_dir / img.name), im_rot)
+            if rotate != 0:
+                im = cv2.rotate(im, rot_map[rotate])
+            cv2.imwrite(str(img_dir / img.name), im)
 
             new_lines = []
             for line in ann.read_text().strip().splitlines():
@@ -78,12 +78,12 @@ def split(ratio: float, seed: int, base: Path, rotate: int) -> tuple:
                 cls = parts[0]
                 x, y, w, h = map(float, parts[1:5])
                 if rotate == 90:
-                    nx, ny, nw, nh = 1 - y, x, h, w
+                    x, y, w, h = 1 - y, x, h, w
                 elif rotate == 180:
-                    nx, ny, nw, nh = 1 - x, 1 - y, w, h
-                else:  # 270
-                    nx, ny, nw, nh = y, 1 - x, h, w
-                new_lines.append(f'{cls} {nx:.6f} {ny:.6f} {nw:.6f} {nh:.6f}')
+                    x, y = 1 - x, 1 - y
+                elif rotate == 270:
+                    x, y, w, h = y, 1 - x, h, w
+                new_lines.append(f'{cls} {x:.6f} {y:.6f} {w:.6f} {h:.6f}')
             (lbl_dir / ann.name).write_text('\n'.join(new_lines) + '\n')
 
     return len(train), len(val)
@@ -94,8 +94,8 @@ def main():
     p.add_argument('--ratio', type=float, default=0.8, help='Fração para treino (default: 0.8)')
     p.add_argument('--seed', type=int, default=42, help='Seed random (default: 42)')
     p.add_argument('--dataset', type=Path, default=Path('dataset'), help='Diretorio do dataset')
-    p.add_argument('--rotate', type=int, default=90, choices=[90, 180, 270],
-                   help='Rotacao em graus aplicada a imagem e bbox (default: 90)')
+    p.add_argument('--rotate', type=int, default=0, choices=[0, 90, 180, 270],
+                   help='Rotacao em graus aplicada a imagem e bbox (default: 0 = sem rotacao)')
     args = p.parse_args()
 
     if not 0.1 <= args.ratio <= 0.95:
