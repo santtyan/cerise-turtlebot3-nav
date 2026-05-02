@@ -30,13 +30,13 @@ def world_to_pixel_with_camera(
     img_w = camera_info.width
     img_h = camera_info.height
 
-    # Câmera aponta para baixo: eixo Z aponta para cima do mundo
-    # Ponto no espaço da câmera: o robô está (world_x, world_y, 0)
-    # câmera está em (0, 0, camera_height), apontando -Z
-    # Coordenadas no frame da câmera (Y para baixo, X para direita, Z para frente=baixo)
-    cam_x = world_x
-    cam_y = -world_y      # invertido: Y do mapa -> -Y câmera (para cima no mundo = para cima na imagem)
-    cam_z = camera_height # profundidade = altura da câmera
+    # Câmera em pose <0 0 3 0 1.5708 0> (pitch=π/2, yaw=0):
+    # Após R_y(π/2): X_cam=-Y_world, Y_cam=-X_world, Z_cam=-Z_world (aponta para baixo)
+    # Vetor câmera→robô no world: (world_x, world_y, -camera_height)
+    # Projetado nos eixos da câmera:
+    cam_x = world_y       # X_cam = +Y_world (espelho corrigido)
+    cam_y = -world_x      # Y_cam = -X_world
+    cam_z = camera_height
 
     if cam_z <= 0:
         return None
