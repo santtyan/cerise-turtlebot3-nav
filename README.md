@@ -208,6 +208,47 @@ ros2 run robot_state_publisher robot_state_publisher \
 
 `scripts/random_nav_goals.py` envia goals via `NavigateToPose` action para ambos os robôs em loop. Waypoints definidos dentro do labirinto `turtlebot3_world`.
 
+### Projeção world→pixel: mapeamento de eixos com pitch=π/2
+
+Com a câmera em `<pose>0 0 3 0 1.5708 0</pose>` (pitch=π/2), a rotação R_y(π/2) transforma os eixos assim:
+
+- `X_cam = +Y_world` → `cam_x = world_y`
+- `Y_cam = -X_world` → `cam_y = -world_x`
+- `Z_cam = camera_height` (profundidade)
+
+```python
+# projection.py — correto para pitch=π/2
+cam_x = world_y
+cam_y = -world_x
+cam_z = camera_height
+u = fx * (cam_x / cam_z) + cx
+v = fy * (cam_y / cam_z) + cy
+```
+
+**Erro comum:** usar `cam_x = world_x` e `cam_y = -world_y` (mapeamento sem rotação). Os bboxes aparecem espelhados horizontalmente em relação aos robôs reais.
+
+### Dataset: invalidação por bug de projeção
+
+Se o `projection.py` estava errado durante a coleta, **todo o dataset deve ser descartado e recoletado** — as anotações `.txt` ficam erradas mesmo que as imagens `.jpg` estejam corretas. Para re-coletar:
+
+```bash
+rm -rf dataset/raw/images/* dataset/raw/annotations/*
+ros2 run cerise_nav dataset_collector
+```
+
+### Parâmetros de treino YOLO validados
+
+Para datasets pequenos (150–500 frames) com uma única classe:
+
+```bash
+yolo detect train data=dataset.yaml model=yolov8n.pt \
+  epochs=50 batch=8 freeze=10 patience=20 imgsz=640
+```
+
+- `freeze=10`: congela backbone pré-treinado, treina só o head (evita overfitting)
+- `patience=20`: early stopping se não melhorar em 20 épocas
+- `batch=8`: compatível com GPUs com 4–8GB VRAM
+
 ## Erros Comuns
 
 ### `spawn_entity timeout`
@@ -268,10 +309,21 @@ YOLO detecta "há um robô aqui" e "há outro ali", mas **não distingue** robot
 
 Para o artigo no LARS, a abordagem (1) é suficiente e preserva a hipótese de "robôs reais idênticos em campo".
 
+## Resultados Obtidos
+
+| Métrica | Valor |
+|---------|-------|
+| Frames coletados (Nav2 autônomo) | ~891 frames |
+| Split treino/val | 80/20 |
+| Projeção world→pixel | Pinhole com intrínsecos reais (`/camera/camera_info`) |
+| Raio do robô no bbox | 0.17m (TurtleBot3 Waffle) |
+| Diversidade de poses | Nav2 navegação autônoma com goals aleatórios |
+
 ## Próximas Etapas
 
-- [ ] Coletar dataset real com robôs em navegação ativa (meta: 500+ frames)
-- [ ] Treinar YOLOv8 com dataset real e avaliar mAP
+- [ ] Re-coletar dataset com projeção corrigida e validar bboxes com `verify_bboxes_gui.py`
+- [ ] Treinar YOLOv8 (epochs=50, batch=8, freeze=10, patience=20)
+- [ ] Avaliar mAP no conjunto de validação
 - [ ] Nó de inferência em tempo real: `/camera/image_raw` → posição estimada no mapa
 - [ ] Associação temporal detecção→identidade robô via Hungarian matching com pose anterior
 - [ ] Comparar posição estimada (YOLO) vs posição real (AMCL) — erro médio como métrica do gêmeo digital
