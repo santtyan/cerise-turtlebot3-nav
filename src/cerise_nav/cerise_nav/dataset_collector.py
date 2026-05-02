@@ -81,9 +81,10 @@ class DatasetCollector(Node):
 
     def _odom_cb(self, msg: Odometry, name: str):
         p = msg.pose.pose.position
-        spawn_x, spawn_y = ROBOT_SPAWN[name]
-        self.poses[name].x = p.x + spawn_x
-        self.poses[name].y = p.y + spawn_y
+        # Odômetro já inicia na pose de spawn (mundo), não na origem
+        # Não somar offset novamente
+        self.poses[name].x = p.x
+        self.poses[name].y = p.y
         self.poses[name].updated = True
 
     def _pose_cb(self, msg: PoseWithCovarianceStamped, name: str):
@@ -117,7 +118,7 @@ class DatasetCollector(Node):
                 continue
             cx, cy = result
             lines.append(f'{ROBOT_CLASS_ID} {cx:.6f} {cy:.6f} {w_norm:.6f} {h_norm:.6f}')
-            visible_names.append(name)
+            visible_names.append(f'{name}@({pose.x:.2f},{pose.y:.2f})')
 
         if not lines:
             self.get_logger().warn('Nenhum robo visivel no frame — ignorado')

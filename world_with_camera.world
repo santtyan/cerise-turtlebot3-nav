@@ -50,7 +50,7 @@
     </model>
 
     <model name="camera_overhead">
-  <pose>0 0 3 0 1.57 0</pose>
+  <pose>0 0 3 0 1.5708 0</pose>
   <static>true</static>
   <link name="camera_link">
     <inertial>

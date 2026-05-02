@@ -4,6 +4,9 @@ setup(
     name='cerise_nav',
     version='0.0.1',
     packages=['cerise_nav'],
+    package_data={
+        'cerise_nav': ['../../../launch/*.launch.py'],
+    },
     install_requires=['setuptools'],
     entry_points={
         'console_scripts': [

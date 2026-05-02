@@ -45,18 +45,27 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
-### 2. Rodar simulação com câmera
+### 2. Rodar simulação com câmera + Nav2
 
 ```bash
-# Terminal 1 — Gazebo + 2 robots + câmera overhead
+# Terminal 1 — Gazebo + 2 robots + Nav2 + initial poses (automático, ~60s)
 ./launch_2robots_with_camera.sh
+# Aguarda "[OK] Nav2 pronto!" antes de abrir outros terminais
 
-# Terminal 2 — Definir poses iniciais (aguardar ~10s)
-./set_initialposes.sh
+# Terminal 2 — Goals aleatórios (robôs navegam autonomamente)
+source /opt/ros/humble/setup.bash
+python3 scripts/random_nav_goals.py
 
-# Terminal 3 — Coletar dataset
+# Terminal 3 — Coletar dataset (~10 min)
+source /opt/ros/humble/setup.bash
+source install/local_setup.bash
 ros2 run cerise_nav dataset_collector
+
+# Terminal 4 — Gazebo GUI (opcional, só quando pipeline estável)
+gzclient
 ```
+
+O `launch_2robots_with_camera.sh` já publica as initial poses automaticamente — **não** é necessário rodar `set_initialposes.sh` separadamente.
 
 O collector salva automaticamente em `dataset/raw/images/` e `dataset/raw/annotations/` a 1 fps.
 
@@ -149,6 +158,55 @@ sleep 10
 export DISPLAY=:0
 gzclient &
 ```
+
+## Lições Aprendidas (Multi-Robot Nav2)
+
+### TF Multi-Robot: cadeia obrigatória
+
+Para Nav2 aceitar goals, a cadeia TF dentro de `/robot1/tf` deve ser completa:
+```
+map → odom → base_footprint → base_link
+```
+- `odom → base_footprint`: publicado pelo diff_drive plugin do Gazebo
+- `base_footprint → base_link`: publicado pelo robot_state_publisher
+- `map → odom`: publicado pelo AMCL **somente após receber initial_pose**
+
+### AMCL não publica map→odom sem initial_pose
+
+O AMCL fica aguardando indefinidamente sem publicar `map→odom` até receber uma mensagem em `/robot1/initialpose`. Goals são rejeitados até essa mensagem chegar.
+
+```bash
+ros2 topic pub --once /robot1/initialpose geometry_msgs/PoseWithCovarianceStamped \
+  "{header: {frame_id: 'map'}, pose: {pose: {position: {x: 0.0, y: 0.5, z: 0.0}, orientation: {w: 1.0}}}}"
+```
+
+O `launch_2robots_with_camera.sh` já faz isso automaticamente após 45s.
+
+### Câmera overhead: pitch correto
+
+- `pitch=0` → câmera aponta para frente (+x) ❌
+- `pitch=1.5708` → câmera aponta para baixo (-z) ✅
+
+```xml
+<pose>0 0 3 0 1.5708 0</pose>
+```
+
+### Modelo do robô para spawn
+
+Usar **sempre** `/opt/ros/humble/share/nav2_bringup/worlds/waffle.model` para spawn. O `waffle_nodepth.model` tem bug no plugin LiDAR (`libgazebo_ros_ray_sensor`) que causa publisher_count=0 no `/robot1/scan`, impedindo AMCL de localizar.
+
+### Nav2 com namespace: remapping TF
+
+RSP com namespace `robot1` deve remapear `/tf` e `/tf_static`:
+```bash
+ros2 run robot_state_publisher robot_state_publisher \
+  --ros-args -r __ns:=/robot1 -r /tf:=tf -r /tf_static:=tf_static \
+  -p robot_description:="$(cat $URDF)" -p use_sim_time:=true
+```
+
+### Goals aleatórios Nav2
+
+`scripts/random_nav_goals.py` envia goals via `NavigateToPose` action para ambos os robôs em loop. Waypoints definidos dentro do labirinto `turtlebot3_world`.
 
 ## Erros Comuns
 
