@@ -465,6 +465,23 @@ runs/detect/runs/detect/train_optimized/
 
 ### Imagens prontas para slides
 
+### Predições do modelo (val set)
+![Predições YOLO](docs/results/val_batch0_pred.jpg)
+
+### Ground Truth vs Predição
+| Ground Truth | Predição |
+|---|---|
+| ![Labels](docs/results/val_batch0_labels.jpg) | ![Pred](docs/results/val_batch0_pred.jpg) |
+
+### Curva de Aprendizado
+![Results](docs/results/results.png)
+
+### Matriz de Confusão
+![Confusion Matrix](docs/results/confusion_matrix_normalized.png)
+
+### Curva Precisão × Recall
+![PR Curve](docs/results/BoxPR_curve.png)
+
 | Arquivo | Conteúdo | Uso recomendado |
 |---------|----------|-----------------|
 | `val_batch0_pred.jpg` | Grid de 16 frames com **predições** do modelo (bboxes azuis + confidence) | Slide "Resultados — detecção em tempo real" |
@@ -472,8 +489,6 @@ runs/detect/runs/detect/train_optimized/
 | `results.png` | Curvas de loss (train/val) e mAP ao longo das épocas | Slide "Curva de aprendizado" |
 | `confusion_matrix_normalized.png` | Matriz de confusão normalizada (robot=1.00) | Slide "Métricas de avaliação" |
 | `BoxPR_curve.png` | Curva Precisão × Recall | Slide "Análise de performance" |
-| `BoxF1_curve.png` | Curva F1 × Confidence | Para escolher threshold ideal |
-| `labels.jpg` | Distribuição espacial das bboxes no dataset | Slide "Dataset" |
 
 ### Métricas-chave para citar nos slides
 
