@@ -456,6 +456,44 @@ def image_callback(msg):
     # Publicar detecções em /robot_detections
 ```
 
+## Materiais para Apresentação (LARS)
+
+Todos os arquivos gerados pelo treino estão em:
+```
+runs/detect/runs/detect/train_optimized/
+```
+
+### Imagens prontas para slides
+
+| Arquivo | Conteúdo | Uso recomendado |
+|---------|----------|-----------------|
+| `val_batch0_pred.jpg` | Grid de 16 frames com **predições** do modelo (bboxes azuis + confidence) | Slide "Resultados — detecção em tempo real" |
+| `val_batch0_labels.jpg` | Mesmo grid com **ground truth** (bboxes do dataset) | Comparar lado a lado com pred |
+| `results.png` | Curvas de loss (train/val) e mAP ao longo das épocas | Slide "Curva de aprendizado" |
+| `confusion_matrix_normalized.png` | Matriz de confusão normalizada (robot=1.00) | Slide "Métricas de avaliação" |
+| `BoxPR_curve.png` | Curva Precisão × Recall | Slide "Análise de performance" |
+| `BoxF1_curve.png` | Curva F1 × Confidence | Para escolher threshold ideal |
+| `labels.jpg` | Distribuição espacial das bboxes no dataset | Slide "Dataset" |
+
+### Métricas-chave para citar nos slides
+
+```
+Precision  = 0.999  (99.9%)
+Recall     = 1.000  (100%)
+mAP@0.5    = 0.995
+mAP@0.5-95 = 0.880
+Inference  = 36ms/img em CPU (~27 FPS)
+Dataset    = 375 frames, split 80/15/5
+Modelo     = YOLOv8n, 6.0MB, 3.0M parâmetros
+```
+
+### Como ver as bboxes no test set (nunca visto durante treino)
+
+```bash
+yolo predict model=model_robot_detector.pt source=dataset/images/test/ conf=0.5 save=True
+eog runs/detect/predict/
+```
+
 ## Referências
 
 - [Nav2 Multi-Robot Tutorial](https://navigation.ros.org/)
