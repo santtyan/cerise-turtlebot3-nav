@@ -468,27 +468,21 @@ runs/detect/runs/detect/train_optimized/
 ### Predições do modelo (val set)
 ![Predições YOLO](docs/results/val_batch0_pred.jpg)
 
-### Ground Truth vs Predição
-| Ground Truth | Predição |
-|---|---|
-| ![Labels](docs/results/val_batch0_labels.jpg) | ![Pred](docs/results/val_batch0_pred.jpg) |
-
-### Curva de Aprendizado
+### Curva de Aprendizado (Loss + mAP por época)
 ![Results](docs/results/results.png)
 
 ### Matriz de Confusão
 ![Confusion Matrix](docs/results/confusion_matrix_normalized.png)
 
-### Curva Precisão × Recall
-![PR Curve](docs/results/BoxPR_curve.png)
+### Curva F1 × Confidence
+![F1 Curve](docs/results/BoxF1_curve.png)
 
 | Arquivo | Conteúdo | Uso recomendado |
 |---------|----------|-----------------|
-| `val_batch0_pred.jpg` | Grid de 16 frames com **predições** do modelo (bboxes azuis + confidence) | Slide "Resultados — detecção em tempo real" |
-| `val_batch0_labels.jpg` | Mesmo grid com **ground truth** (bboxes do dataset) | Comparar lado a lado com pred |
-| `results.png` | Curvas de loss (train/val) e mAP ao longo das épocas | Slide "Curva de aprendizado" |
-| `confusion_matrix_normalized.png` | Matriz de confusão normalizada (robot=1.00) | Slide "Métricas de avaliação" |
-| `BoxPR_curve.png` | Curva Precisão × Recall | Slide "Análise de performance" |
+| `val_batch0_pred.jpg` | Grid 16 frames com bboxes + confidence | Slide "Modelo em ação" |
+| `results.png` | Curvas loss + mAP por época | Slide "Curva de aprendizado" |
+| `confusion_matrix_normalized.png` | Matriz de confusão (robot=1.00) | Slide "Métricas" |
+| `BoxF1_curve.png` | F1=1.0 at 0.726 confidence | Slide "Performance" |
 
 ### Métricas-chave para citar nos slides
 
