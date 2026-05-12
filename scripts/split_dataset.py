@@ -25,7 +25,7 @@ from pathlib import Path
 import cv2
 
 
-def split(ratio: float, seed: int, base: Path, rotate: int) -> tuple:
+def split(ratio: float, seed: int, base: Path, rotate: int, val_ratio: float = 0.15) -> tuple:
     raw_images = base / 'raw' / 'images'
     raw_labels = base / 'raw' / 'annotations'
 
@@ -39,7 +39,6 @@ def split(ratio: float, seed: int, base: Path, rotate: int) -> tuple:
         print(f'[ERRO] Nenhuma imagem em {raw_images}', file=sys.stderr)
         sys.exit(1)
 
-    # Garante que cada imagem tem anotação correspondente
     paired = []
     for img in images:
         ann = raw_labels / f'{img.stem}.txt'
@@ -49,16 +48,27 @@ def split(ratio: float, seed: int, base: Path, rotate: int) -> tuple:
             print(f'[WARN] Sem anotacao para {img.name} — ignorado')
 
     random.Random(seed).shuffle(paired)
-    n_train = int(len(paired) * ratio)
+    n_total = len(paired)
+    n_train = int(n_total * ratio)
+    n_val = int(n_total * val_ratio)
     train = paired[:n_train]
-    val   = paired[n_train:]
+    val   = paired[n_train:n_train + n_val]
+    test  = paired[n_train + n_val:]
 
     rot_map = {90: cv2.ROTATE_90_CLOCKWISE,
                180: cv2.ROTATE_180,
                270: cv2.ROTATE_90_COUNTERCLOCKWISE}
 
-    # YOLO v8 espera: {dataset}/images/{split}/ e {dataset}/labels/{split}/
-    for split_name, pairs in (('train', train), ('val', val)):
+    # Limpa splits antigos para evitar contaminação cruzada
+    for split_name in ('train', 'val', 'test'):
+        img_dir = base / 'images' / split_name
+        lbl_dir = base / 'labels' / split_name
+        if img_dir.exists():
+            shutil.rmtree(img_dir)
+        if lbl_dir.exists():
+            shutil.rmtree(lbl_dir)
+
+    for split_name, pairs in (('train', train), ('val', val), ('test', test)):
         img_dir = base / 'images' / split_name
         lbl_dir = base / 'labels' / split_name
         img_dir.mkdir(parents=True, exist_ok=True)
