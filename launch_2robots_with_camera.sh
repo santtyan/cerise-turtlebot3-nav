@@ -18,8 +18,9 @@ WORLD=$SCRIPT_DIR/world_with_camera.world
 WAFFLE=/opt/ros/humble/share/nav2_bringup/worlds/waffle.model
 # URDF sem xacro — frames sem prefixo (base_link, base_footprint, etc.)
 URDF=/opt/ros/humble/share/nav2_bringup/urdf/turtlebot3_waffle.urdf
-P1=/opt/ros/humble/share/nav2_bringup/params/nav2_multirobot_params_1.yaml
-P2=/opt/ros/humble/share/nav2_bringup/params/nav2_multirobot_params_2.yaml
+# params locais com use_sim_time: False (evita bloqueio do lifecycle_manager por /clock QoS mismatch)
+P1=$SCRIPT_DIR/params_r1.yaml
+P2=$SCRIPT_DIR/params_r2.yaml
 
 # ── 1. Gazebo ──────────────────────────────────────────────────────────────
 echo "[1/5] gzserver..."
@@ -50,7 +51,7 @@ ros2 run robot_state_publisher robot_state_publisher \
   -r __ns:=/robot1 \
   -r /tf:=tf \
   -r /tf_static:=tf_static \
-  -p use_sim_time:=true \
+  -p use_sim_time:=false \
   -p robot_description:="$ROBOT_DESC" \
   > /tmp/rsp1.log 2>&1 &
 
@@ -59,14 +60,14 @@ ros2 run robot_state_publisher robot_state_publisher \
   -r __ns:=/robot2 \
   -r /tf:=tf \
   -r /tf_static:=tf_static \
-  -p use_sim_time:=true \
+  -p use_sim_time:=false \
   -p robot_description:="$ROBOT_DESC" \
   > /tmp/rsp2.log 2>&1 &
 
 # ── 4. Nav2 (inclui map_server + AMCL + planner) ──────────────────────────
 echo "[4/5] Nav2 robot1..."
 ros2 launch nav2_bringup bringup_launch.py \
-  use_sim_time:=True \
+  use_sim_time:=False \
   namespace:=robot1 \
   use_namespace:=True \
   autostart:=True \
@@ -76,7 +77,7 @@ ros2 launch nav2_bringup bringup_launch.py \
 
 echo "[5/5] Nav2 robot2..."
 ros2 launch nav2_bringup bringup_launch.py \
-  use_sim_time:=True \
+  use_sim_time:=False \
   namespace:=robot2 \
   use_namespace:=True \
   autostart:=True \
@@ -84,23 +85,33 @@ ros2 launch nav2_bringup bringup_launch.py \
   params_file:=$P2 \
   > /tmp/nav2_r2.log 2>&1 &
 
-# ── 5. Aguardar Nav2 + publicar initial poses ──────────────────────────────
+# ── 5. Aguardar Nav2 + publicar TF estatico map→odom ─────────────────────────
 echo ""
-echo "Aguardando Nav2 + AMCL iniciarem (45s)..."
-sleep 45
+echo "Aguardando Nav2 ativar (60s)..."
+sleep 60
 
-echo "[OK] Publicando initial poses (ativa map→odom no AMCL)..."
-timeout 5 ros2 topic pub --once /robot1/initialpose geometry_msgs/PoseWithCovarianceStamped \
-  "{header: {frame_id: 'map'}, pose: {pose: {position: {x: 0.0, y: 0.5, z: 0.0}, orientation: {w: 1.0}}}}" || true
-timeout 5 ros2 topic pub --once /robot2/initialpose geometry_msgs/PoseWithCovarianceStamped \
-  "{header: {frame_id: 'map'}, pose: {pose: {position: {x: 0.0, y: -0.5, z: 0.0}, orientation: {w: 1.0}}}}" || true
+echo "[OK] Verificando se Nav2 ativou..."
+ros2 service list 2>/dev/null | grep navigate_to_pose && echo "[OK] navigate_to_pose disponivel!" || echo "[WARN] navigate_to_pose NAO encontrado — verifique /tmp/nav2_r1.log"
+
+echo "[OK] Publicando TF estatico map→odom (bypass AMCL)..."
+ros2 run tf2_ros static_transform_publisher \
+  --x 0 --y 0 --z 0 --yaw 0 --pitch 0 --roll 0 \
+  --frame-id map --child-frame-id odom \
+  --ros-args -r __ns:=/robot1 -r /tf_static:=tf_static \
+  > /tmp/tf_r1.log 2>&1 &
+ros2 run tf2_ros static_transform_publisher \
+  --x 0 --y 0 --z 0 --yaw 0 --pitch 0 --roll 0 \
+  --frame-id map --child-frame-id odom \
+  --ros-args -r __ns:=/robot2 -r /tf_static:=tf_static \
+  > /tmp/tf_r2.log 2>&1 &
 
 echo ""
 echo "═══════════════════════════════════════════"
 echo " [OK] Nav2 pronto! Abra os outros terminais:"
-echo "  T2: python3 scripts/random_nav_goals.py"
-echo "  T3: ros2 run cerise_nav dataset_collector"
-echo "  T4: gzclient  (GUI opcional)"
+echo "  T2: ros2 run cerise_nav demand_generator"
+echo "  T3: ros2 run cerise_nav task_allocator"
+echo "  T4: ros2 run cerise_nav dataset_collector"
+echo "  T5: gzclient  (GUI opcional)"
 echo "═══════════════════════════════════════════"
 
 wait

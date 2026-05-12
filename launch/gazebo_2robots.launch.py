@@ -1,75 +1,50 @@
 #!/usr/bin/env python3
 """
-Launch file para simular 2 TurtleBot3 Waffle com câmera overhead em Gazebo.
-GUI enabled para visualização.
+Launch leve: Gazebo + 2 TurtleBot3 + dataset_collector.
+Movimento dos robôs é feito via `scripts/cmd_vel_random.py` (sem Nav2).
 """
-
-import os
 from pathlib import Path
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
+from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 
 
-def launch_setup(context, *args, **kwargs):
-    """Setup dinâmico do launch."""
-
-    pkg_dir = Path(__file__).parent.parent
-    world_file = pkg_dir / "world_with_camera.world"
-
-    return [
-        # Gazebo com mundo customizado
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                "/opt/ros/humble/share/gazebo_ros/launch/gazebo.launch.py"
-            ),
-            launch_arguments={
-                "world": str(world_file),
-                "pause": "false",
-                "gui": "true",
-            }.items(),
-        ),
-
-        # Spawn robot1
-        Node(
-            package="gazebo_ros",
-            executable="spawn_entity.py",
-            arguments=[
-                "-entity", "robot1",
-                "-file", str(pkg_dir / "waffle_nodepth.model"),
-                "-robot_namespace", "robot1",
-                "-x", "0.0",
-                "-y", "0.5",
-                "-z", "0.01",
-            ],
-            output="screen",
-        ),
-
-        # Spawn robot2
-        Node(
-            package="gazebo_ros",
-            executable="spawn_entity.py",
-            arguments=[
-                "-entity", "robot2",
-                "-file", str(pkg_dir / "waffle_nodepth.model"),
-                "-robot_namespace", "robot2",
-                "-x", "0.0",
-                "-y", "-0.5",
-                "-z", "0.01",
-            ],
-            output="screen",
-        ),
-    ]
-
-
 def generate_launch_description():
-    return LaunchDescription([
-        DeclareLaunchArgument(
-            "gui",
-            default_value="true",
-            description="Launch Gazebo GUI",
-        ),
-        OpaqueFunction(function=launch_setup),
-    ])
+    pkg_dir = Path(__file__).parent.parent.resolve()
+    world_file = str(pkg_dir / "world_with_camera.world")
+    waffle_model = str(pkg_dir / "waffle_nodepth.model")
+    pkg_gazebo_ros = "/opt/ros/humble/share/gazebo_ros"
+
+    ld = LaunchDescription()
+
+    ld.add_action(
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(f"{pkg_gazebo_ros}/launch/gzserver.launch.py"),
+            launch_arguments={"world": world_file, "pause": "false"}.items(),
+        )
+    )
+    ld.add_action(
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(f"{pkg_gazebo_ros}/launch/gzclient.launch.py")
+        )
+    )
+
+    ld.add_action(Node(
+        package="gazebo_ros", executable="spawn_entity.py",
+        arguments=["-entity", "robot1", "-file", waffle_model,
+                   "-robot_namespace", "robot1",
+                   "-x", "0.0", "-y", "0.5", "-z", "0.01"],
+        output="screen",
+    ))
+    ld.add_action(Node(
+        package="gazebo_ros", executable="spawn_entity.py",
+        arguments=["-entity", "robot2", "-file", waffle_model,
+                   "-robot_namespace", "robot2",
+                   "-x", "0.0", "-y", "-0.5", "-z", "0.01"],
+        output="screen",
+    ))
+
+    ld.add_action(Node(package="cerise_nav", executable="dataset_collector", output="screen"))
+
+    return ld
