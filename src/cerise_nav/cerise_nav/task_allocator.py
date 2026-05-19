@@ -62,9 +62,11 @@ class TaskAllocator(Node):
 
     def send_goal(self, robot, demand):
         client = self.nav_clients[robot]
-        if not client.wait_for_server(timeout_sec=2.0):
-            self.get_logger().error(f'{robot}: Nav2 indisponivel')
+        if not client.server_is_ready():
+            self.get_logger().warning(f'{robot}: Nav2 nao pronto, retry em 2s')
             self.busy[robot] = False
+            self.queue.insert(0, demand)
+            self.create_timer(2.0, lambda: self.try_dispatch())
             return
         goal = NavigateToPose.Goal()
         goal.pose = PoseStamped()

@@ -100,6 +100,7 @@ class YoloDetector(Node):
         self.pub_poses = self.create_publisher(PoseArray, '/robot_detections', 10)
         self.pub_error = self.create_publisher(Float32, '/detection_error', 10)
         self.pub_debug = self.create_publisher(String, '/detection_debug', 10)
+        self.pub_image = self.create_publisher(Image, '/detection_image', 10)
 
         self.get_logger().info('YoloDetector pronto — aguardando imagens')
 
@@ -121,18 +122,33 @@ class YoloDetector(Node):
             for box in results[0].boxes:
                 # Centro do bbox em coordenadas normalizadas
                 cx_px, cy_px = box.xywhn[0][:2].tolist()  # normalizado [0,1]
-                world_x, world_y = pixel_to_world_simple(
+                raw_x, raw_y = pixel_to_world_simple(
                     cx_px, cy_px,
                     camera_height=self.cam_height,
                     horizontal_fov=self.fov,
                     img_width=w,
                     img_height=h,
                 )
+                # Câmera pitch=π/2: world_x=raw_y, world_y=-raw_x (validado empiricamente)
+                world_x, world_y = raw_y, -raw_x
                 conf_val = float(box.conf[0])
                 detections.append((world_x, world_y, conf_val))
 
         self._publish_detections(detections)
         self._compute_error(detections)
+        self._publish_image(frame, results)
+
+    def _publish_image(self, frame, results):
+        annotated = results[0].plot() if results else frame
+        # Overlay: erro médio no canto superior esquerdo
+        cv2.putText(annotated, 'CERISE Digital Twin', (10, 25),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        try:
+            msg = self.bridge.cv2_to_imgmsg(annotated, encoding='bgr8')
+            msg.header.stamp = self.get_clock().now().to_msg()
+            self.pub_image.publish(msg)
+        except Exception:
+            pass
 
     def _publish_detections(self, detections):
         msg = PoseArray()

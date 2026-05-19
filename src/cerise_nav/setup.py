@@ -20,6 +20,7 @@ setup(
             'task_allocator = cerise_nav.task_allocator:main',
             'dataset_collector = cerise_nav.dataset_collector:main',
             'yolo_detector = cerise_nav.yolo_detector:main',
+            'benchmark_detector = cerise_nav.benchmark_detector:main',
         ],
     },
 )

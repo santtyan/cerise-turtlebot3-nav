@@ -12,17 +12,25 @@ import random
 import math
 
 
-# Goals válidos dentro do labirinto turtlebot3_world (metros)
-WAYPOINTS = [
-    ( 0.0,  0.0),
-    ( 1.0,  0.5),
-    ( 1.0, -0.5),
-    (-0.5,  1.0),
-    (-0.5, -1.0),
-    ( 1.5,  0.0),
-    ( 0.5,  1.5),
-    ( 0.0, -1.5),
-]
+# Goals por zona — robot1 em y>0, robot2 em y<0 (evita colisões)
+WAYPOINTS = {
+    'robot1': [
+        ( 0.5,  0.5),
+        ( 1.0,  0.5),
+        (-0.5,  1.0),
+        ( 0.5,  1.5),
+        ( 0.0,  1.0),
+        (-0.5,  0.5),
+    ],
+    'robot2': [
+        ( 0.5, -0.5),
+        ( 1.0, -0.5),
+        (-0.5, -1.0),
+        ( 0.5, -1.5),
+        ( 0.0, -1.0),
+        (-0.5, -0.5),
+    ],
+}
 
 
 class RandomGoalSender(Node):
@@ -35,7 +43,7 @@ class RandomGoalSender(Node):
         self._send_next()
 
     def _send_next(self):
-        x, y = random.choice(WAYPOINTS)
+        x, y = random.choice(WAYPOINTS[self.robot])
         yaw = random.uniform(-math.pi, math.pi)
 
         goal = NavigateToPose.Goal()
