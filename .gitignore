@@ -13,7 +13,7 @@ dataset/
 *.onnx
 
 # Modelos PPO treinados (pesados, distribuir via Release)
-models/*.zip
+models/
 
 # Logs de treino
 train.log

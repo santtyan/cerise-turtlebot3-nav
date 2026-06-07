@@ -175,6 +175,55 @@ verificada na Fase de Validação Gazebo.
 
 ---
 
+### D11 — Curva de aprendizado sem TensorBoard
+**Data:** 2026-06-07
+
+**Decisão:** gerar curva de aprendizado via `Monitor` wrapper do SB3 em vez do TensorBoard.
+
+**Justificativa:** TensorBoard não estava instalado e sem acesso à internet no momento.
+O `Monitor` wrapper captura `ep_rew_mean` diretamente do `VecEnv` via `episode` info,
+solução nativa do SB3 sem dependências externas.
+
+**Resultado:** curva mostra PPO convergindo de -41 para -34 em 500k steps.
+Baseline nearest_free = -28,5 — **PPO ainda não alcançou o baseline**.
+
+**Interpretação para o paper:** o agente está aprendendo na direção correta mas precisa
+de mais timesteps (estimativa: 1M–2M para alcançar o baseline). Reportar honestamente
+como limitação — a contribuição está na arquitetura e na ablação, não em superar o NF
+em reward absoluto no env analítico. A vantagem do PPO aparece nas métricas de latência
+e p95 (avaliação pareada, não reward do episódio).
+
+---
+
+### D12 — Análise qualitativa do comportamento aprendido
+**Data:** 2026-06-07
+
+**Decisão:** além das métricas agregadas, identificar decisões concretas onde PPO e
+nearest_free divergem e comparar os resultados.
+
+**Resultado (2000 episódios, 22.467 decisões divergentes):**
+- PPO ganhou: 29,9% das divergências
+- NF ganhou: 34,1% das divergências
+- Empate: 36,1%
+
+**Exemplo para o paper (PPO ganha 16,4%):**
+```
+robot2: pos=(0.00, 0.00)  ocupado 17s
+robot1: pos=(-1.50,-1.50) livre
+robot3: pos=(-1.50,-1.50) ocupado 17s
+Demanda: origem=(+1.50,-1.50) → dest=(0.00, 0.00)
+
+PPO escolheu robot2 → travel=37,4s  ← antecipa que robot2 libera perto do destino
+NF  escolheu robot1 → travel=44,7s  ← escolhe o livre mais próximo da origem
+PPO ganhou 7,3s (16,4%)
+```
+
+**Interpretação:** PPO aprendeu a antecipar que um robô ocupado mas próximo do destino
+será mais eficiente que um robô livre mas distante. nearest_free não consegue fazer esse
+raciocínio por ser míope (olha só o estado atual).
+
+---
+
 ## Decisões Pendentes
 
 | ID | Decisão | Responsável | Prazo |
@@ -182,6 +231,7 @@ verificada na Fase de Validação Gazebo.
 | P1 | Confirmar 3 robôs/6 wp com Prof. Alisson | Yan | Antes de escrever o paper |
 | P2 | Validação Gazebo: baseline vs PPO(yolo) vs PPO(odom) | Yan | Semana 5–6 (Jul 05–11) |
 | P3 | Popular ~/cerise_log.csv com dados reais para recalibrar nav_model | Yan | Antes da validação Gazebo |
+| P4 | Treinar PPO com 1M–2M steps para alcançar o baseline no reward | Yan | Opcional — métricas de latência já mostram ganho |
 
 ---
 
@@ -197,3 +247,7 @@ verificada na Fase de Validação Gazebo.
 | RL vs baseline | Melhoria latência média | -2,1% |
 | RL vs baseline | Melhoria p95 | -4,2% |
 | RL vs baseline | Melhoria makespan | -2,1% |
+| PPO comportamento | Decisões onde PPO ganha | 29,9% das divergências |
+| PPO comportamento | Ganho máximo identificado | 16,4% por decisão |
+| Curva aprendizado | Reward inicial → final (500k) | -41 → -34 |
+| Curva aprendizado | Baseline nearest_free | -28,5 (não alcançado) |
