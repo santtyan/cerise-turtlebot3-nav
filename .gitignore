@@ -11,3 +11,9 @@ dataset/
 # Modelo treinado — versionar via Release, não no repo
 *.pt
 *.onnx
+
+# Modelos PPO treinados (pesados, distribuir via Release)
+models/*.zip
+
+# Logs de treino
+train.log
