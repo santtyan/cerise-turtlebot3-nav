@@ -5,7 +5,7 @@ import os
 setup(
     name='cerise_nav',
     version='0.0.1',
-    packages=['cerise_nav'],
+    packages=['cerise_nav', 'cerise_nav.rl'],
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/cerise_nav']),
         ('share/cerise_nav', ['package.xml']),
@@ -13,7 +13,7 @@ setup(
         ('share/cerise_nav', glob('../../*.world')),
         ('share/cerise_nav', glob('../../*.model')),
     ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools', 'stable-baselines3', 'gymnasium'],
     entry_points={
         'console_scripts': [
             'demand_generator = cerise_nav.demand_generator:main',
@@ -21,6 +21,7 @@ setup(
             'dataset_collector = cerise_nav.dataset_collector:main',
             'yolo_detector = cerise_nav.yolo_detector:main',
             'benchmark_detector = cerise_nav.benchmark_detector:main',
+            'rl_task_allocator = cerise_nav.rl_task_allocator:main',
         ],
     },
 )

@@ -1,0 +1,12 @@
+# Dependências Python do CERISE (fonte única para pip)
+# Instalar: pip install -r requirements.txt
+
+# Visão / detecção
+ultralytics>=8.0
+numpy
+
+# Aprendizado por reforço (alocação de tarefas)
+stable-baselines3>=2.8
+gymnasium>=1.2
+scipy            # linear_sum_assignment (associação detecção<->robô)
+tensorboard      # curvas de treino do PPO
