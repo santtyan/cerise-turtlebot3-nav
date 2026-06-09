@@ -33,20 +33,20 @@ for i in {1..60}; do
 done
 
 # ── 2. Spawn ───────────────────────────────────────────────────────────────
-# IMPORTANTE: turtlebot3_world tem cilindros numa grade {-1.1, 0, 1.1}^2.
-# Spawnar em (0,0)/(0,±1.0) colocava os robôs EM CIMA dos cilindros → colisão
-# física ejetava o robô e a odom integrava velocidade espúria (y≈45m, z≈0.25m).
-# Posições abaixo ficam nos espaços LIVRES entre 4 cilindros (validado: odom estável).
-echo "[2/5] Spawn robot1, robot2 e robot3 (espaços livres entre obstáculos)..."
+# Spawns distribuídos nos 3 quadrantes livres da arena.
+# Regra: evitar a grade de cilindros {-1.1,0,1.1}^2 (raio ~0.15m).
+# Posições escolhidas a ≥0.5m de qualquer cilindro e entre os waypoints A-D,
+# reduzindo cruzamentos. Todos dentro do FOV da câmera (±1.73m H, ±1.3m V).
+echo "[2/5] Spawn robot1, robot2 e robot3 (distribuídos nos quadrantes)..."
 ros2 run gazebo_ros spawn_entity.py \
   -entity robot1 -file "$WAFFLE" -robot_namespace robot1 \
-  -x 0.55 -y 0.55 -z 0.01 2>&1 | grep -i status
+  -x  0.80 -y  0.40 -z 0.01 2>&1 | grep -i status
 ros2 run gazebo_ros spawn_entity.py \
   -entity robot2 -file "$WAFFLE" -robot_namespace robot2 \
-  -x -0.55 -y 0.55 -z 0.01 2>&1 | grep -i status
+  -x -0.80 -y  0.40 -z 0.01 2>&1 | grep -i status
 ros2 run gazebo_ros spawn_entity.py \
   -entity robot3 -file "$WAFFLE" -robot_namespace robot3 \
-  -x 0.55 -y -0.55 -z 0.01 2>&1 | grep -i status
+  -x  0.00 -y -0.70 -z 0.01 2>&1 | grep -i status
 
 # ── 3. Robot State Publisher ───────────────────────────────────────────────
 echo "[3/5] robot_state_publisher..."

@@ -26,17 +26,18 @@ from .nav_model import NavModel
 
 # Waypoints default (mesmos de demand_generator.py). O cenário ampliado passa
 # uma lista maior via construtor.
+# Waypoints nos espaços livres entre os cilindros do turtlebot3_world
+# (grade em {-1.1,0,1.1}^2). Alinhados com demand_generator.py.
 DEFAULT_WAYPOINTS = {
-    'A': (0.0, 0.0), 'B': (1.5, 0.0),
-    'C': (0.0, -1.5), 'D': (1.5, -1.5),
+    'A': (-0.55,  0.55), 'B': ( 0.55,  0.55),
+    'C': (-0.55, -0.55), 'D': ( 0.55, -0.55),
 }
 
-# Cenário ampliado de alta carga (6 waypoints) — usado no paper para criar
-# situações onde a regra gulosa nearest_free é míope e o PPO ganha.
+# Cenário ampliado de alta carga (6 waypoints) — adiciona mid-N e mid-S.
 EXPANDED_WAYPOINTS = {
-    'A': (0.0, 0.0), 'B': (1.5, 0.0),
-    'C': (0.0, -1.5), 'D': (1.5, -1.5),
-    'E': (-1.5, 0.0), 'F': (-1.5, -1.5),
+    'A': (-0.55,  0.55), 'B': ( 0.55,  0.55),
+    'C': (-0.55, -0.55), 'D': ( 0.55, -0.55),
+    'E': ( 0.00,  0.55), 'F': ( 0.00, -0.55),
 }
 
 # Registry para seleção por nome via CLI dos scripts.

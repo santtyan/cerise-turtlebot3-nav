@@ -3,11 +3,14 @@ from rclpy.node import Node
 from std_msgs.msg import String
 import random, json, time
 
+# Waypoints nos espaços livres entre os cilindros do turtlebot3_world
+# (grade de obstáculos em {-1.1,0,1.1}^2). Todos dentro do FOV da câmera
+# overhead (±1.73m H, ±1.3m V com FOV=60°, h=3m). Max coord = ±0.55m → folga.
 WAYPOINTS = {
-    'A': (0.0,  0.0),
-    'B': (1.5,  0.0),
-    'C': (0.0, -1.5),
-    'D': (1.5, -1.5),
+    'A': (-0.55,  0.55),   # NW
+    'B': ( 0.55,  0.55),   # NE
+    'C': (-0.55, -0.55),   # SW
+    'D': ( 0.55, -0.55),   # SE
 }
 
 class DemandGenerator(Node):
