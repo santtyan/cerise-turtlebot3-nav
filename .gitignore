@@ -17,3 +17,9 @@ models/
 
 # Logs de treino
 train.log
+
+# TF frames gerados por view_frames
+frames_*.gv
+frames_*.pdf
+# Viewer HTML efêmero
+dataset_viewer.html
