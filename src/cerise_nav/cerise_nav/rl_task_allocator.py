@@ -33,7 +33,7 @@ from std_msgs.msg import String
 from cerise_nav.rl import obs_encoding
 
 LOG_FILE = os.path.expanduser('~/cerise_log.csv')
-ROBOTS = ['robot1', 'robot2', 'robot3']  # ampliável; ajustar ao cenário ativo
+ROBOTS = ['robot1', 'robot2', 'robot3']  # 3 robôs para validação — mesmo do treino
 # Distância máxima (m) para associar uma detecção a um robô via odom.
 ASSOC_MAX_DIST = 0.5
 

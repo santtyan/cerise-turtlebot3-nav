@@ -8,7 +8,7 @@ from geometry_msgs.msg import PoseStamped
 import json, math, time, csv, os
 LOG_FILE = os.path.expanduser('~/cerise_log.csv')
 
-ROBOTS = ['robot1', 'robot2']
+ROBOTS = ['robot1', 'robot2', 'robot3']  # 3 robôs para validação
 
 class TaskAllocator(Node):
     def __init__(self):

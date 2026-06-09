@@ -91,10 +91,18 @@ class YoloDetector(Node):
         # Ground truth: posições dos robôs via odometry
         self.odom = {}  # robot_id → (x, y)
 
+        # Lista de robôs (paridade com task_allocator/rl_task_allocator).
+        # Default = 3 robôs para validação; parametrizável para evitar perder GT
+        # de algum robô (bug histórico: robot3 sem subscription de odom).
+        self.declare_parameter('robots', ['robot1', 'robot2', 'robot3'])
+        self.robots = list(self.get_parameter('robots').value)
+
         # Subscriptions
         self.create_subscription(Image, '/camera/image_raw', self._img_cb, SENSOR_QOS)
-        self.create_subscription(Odometry, '/robot1/odom', lambda m: self._odom_cb('robot1', m), SENSOR_QOS)
-        self.create_subscription(Odometry, '/robot2/odom', lambda m: self._odom_cb('robot2', m), SENSOR_QOS)
+        for r in self.robots:
+            self.create_subscription(
+                Odometry, f'/{r}/odom',
+                lambda m, rid=r: self._odom_cb(rid, m), SENSOR_QOS)
 
         # Publishers
         self.pub_poses = self.create_publisher(PoseArray, '/robot_detections', 10)
