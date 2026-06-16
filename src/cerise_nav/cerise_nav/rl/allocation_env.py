@@ -49,7 +49,7 @@ WAYPOINT_SETS = {
 # Penalidade (em unidades de reward) por escolher um robô ocupado.
 INVALID_ACTION_PENALTY = 1.0
 # Peso do termo de balanceamento de carga no reward (0 = desliga).
-LOAD_BALANCE_WEIGHT = 0.1
+LOAD_BALANCE_WEIGHT = 0.3
 
 # Perfis de ruído de posição para a ablação YOLO vs odometria.
 # A observação vista pela política recebe esse ruído; a dinâmica real (tempo de
@@ -142,12 +142,13 @@ class AllocationEnv(gym.Env):
         # que a observação vista pela política é coerente com a decisão.
         invalid = self._busy[action] > 0.0
         reward = 0.0
+        wait_time = 0.0
 
         if invalid:
             # Robô ocupado: penaliza e avança o relógio até ele liberar.
             reward -= INVALID_ACTION_PENALTY
-            wait = self._busy[action]
-            self._advance_clock(wait)
+            wait_time = self._busy[action]
+            self._advance_clock(wait_time)
 
         # Tempo de navegação da tarefa (robô -> origem -> destino).
         travel = self.nav.travel_time(
@@ -175,6 +176,8 @@ class AllocationEnv(gym.Env):
         info = {
             'robot': action,
             'travel_time': travel,
+            'wait_time': wait_time,
+            'response_time': wait_time + travel,
             'invalid': invalid,
             'task_count': list(self._task_count),
         }
