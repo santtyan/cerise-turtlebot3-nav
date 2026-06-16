@@ -22,6 +22,7 @@ setup(
             'yolo_detector = cerise_nav.yolo_detector:main',
             'benchmark_detector = cerise_nav.benchmark_detector:main',
             'rl_task_allocator = cerise_nav.rl_task_allocator:main',
+            'video_recorder = cerise_nav.video_recorder:main',
         ],
     },
 )

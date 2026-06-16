@@ -100,14 +100,14 @@ class TaskAllocator(Node):
     def init_csv(self):
         if not os.path.exists(LOG_FILE):
             with open(LOG_FILE, 'w', newline='') as f:
-                csv.writer(f).writerow(['timestamp','demand_id','origin','dest','robot','latency_s'])
+                csv.writer(f).writerow(['timestamp','demand_id','origin','dest','robot','latency_s','policy'])
 
     def log_csv(self, demand, robot, latency):
         with open(LOG_FILE, 'a', newline='') as f:
             csv.writer(f).writerow([
                 time.strftime('%Y-%m-%d %H:%M:%S'),
                 demand['id'], demand['origin'], demand['dest'],
-                robot, round(latency, 2)
+                robot, round(latency, 2), 'baseline'
             ])
 
 def main():

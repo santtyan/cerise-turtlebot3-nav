@@ -1,124 +1,128 @@
 #!/usr/bin/env python3
-"""Gera curva de aprendizado do PPO e salva em docs/rl_learning_curve.png."""
+"""Gera curva de aprendizado retreinando PPO com checkpoints a cada 50k steps.
 
+Avalia cada checkpoint no env leve (200 episódios) e plota ep_rew_mean
+para PPO(yolo), PPO(odom) e a linha do nearest_free como referência.
+
+Uso:
+    python3 scripts/plot_learning_curve.py
+"""
 import os
 import sys
-
 import numpy as np
 
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO, 'src', 'cerise_nav'))
 
 from stable_baselines3 import PPO
-from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.monitor import Monitor
-
 from cerise_nav.rl.allocation_env import AllocationEnv, WAYPOINT_SETS
 from cerise_nav.rl import baselines
 from cerise_nav.rl.nav_model import calibrate_from_csv
 
+TOTAL_STEPS   = 500_000
+EVAL_INTERVAL = 50_000
+N_EVAL_EPS    = 200
+N_ENVS        = 8
+SEED          = 42
 
-class EpisodeRewardCallback(BaseCallback):
-    """Registra reward médio por episódio a cada rollout via Monitor."""
-    def __init__(self, eval_freq=4096):
-        super().__init__()
-        self.eval_freq = eval_freq
-        self.timesteps = []
-        self.rewards = []
-        self._last_log = 0
-
-    def _on_step(self):
-        if self.num_timesteps - self._last_log >= self.eval_freq:
-            # Pega ep_rew_mean do buffer de infos do VecEnv
-            infos = self.locals.get('infos', [])
-            ep_rewards = [i['episode']['r'] for i in infos
-                          if 'episode' in i]
-            if ep_rewards:
-                self.timesteps.append(self.num_timesteps)
-                self.rewards.append(np.mean(ep_rewards))
-                self._last_log = self.num_timesteps
-        return True
+ENV_KWARGS = dict(
+    num_robots=3,
+    waypoints=WAYPOINT_SETS['default'],
+    episode_len=20,
+    inter_arrival=30.0,
+    load_balance=True,
+)
 
 
-def compute_baseline_reward(nav, n_episodes=500):
-    env = AllocationEnv(
-        num_robots=3, waypoints=WAYPOINT_SETS['expanded'],
-        episode_len=30, inter_arrival=15, nav_model=nav)
+def mean_reward(model, nav, obs_source, n_eps):
+    env = AllocationEnv(**ENV_KWARGS, obs_source=obs_source, nav_model=nav)
     rewards = []
-    for ep in range(n_episodes):
+    for ep in range(n_eps):
         obs, _ = env.reset(seed=ep)
-        done, total = False, 0.0
+        ep_r, done = 0.0, False
         while not done:
-            a = baselines.nearest_free_policy(obs, env.num_robots)
+            a = int(model.predict(obs, deterministic=True)[0])
             obs, r, term, trunc, _ = env.step(a)
-            total += r
+            ep_r += r
             done = term or trunc
-        rewards.append(total)
+        rewards.append(ep_r)
     return float(np.mean(rewards))
 
 
+def baseline_reward(nav, n_eps):
+    env = AllocationEnv(**ENV_KWARGS, obs_source='yolo', nav_model=nav)
+    rewards = []
+    for ep in range(n_eps):
+        obs, _ = env.reset(seed=ep)
+        ep_r, done = 0.0, False
+        while not done:
+            a = baselines.nearest_free_policy(obs, 3)
+            obs, r, term, trunc, _ = env.step(a)
+            ep_r += r
+            done = term or trunc
+        rewards.append(ep_r)
+    return float(np.mean(rewards))
+
+
+def train_with_checkpoints(obs_source, nav):
+    vec_env = make_vec_env(
+        AllocationEnv, n_envs=N_ENVS, seed=SEED,
+        env_kwargs={**ENV_KWARGS, 'obs_source': obs_source, 'nav_model': nav})
+    model = PPO('MlpPolicy', vec_env, verbose=0, seed=SEED)
+
+    steps_done = 0
+    curve = []
+    checkpoints = list(range(EVAL_INTERVAL, TOTAL_STEPS + 1, EVAL_INTERVAL))
+
+    for ckpt in checkpoints:
+        model.learn(total_timesteps=ckpt - steps_done, reset_num_timesteps=False)
+        steps_done = ckpt
+        r = mean_reward(model, nav, obs_source, N_EVAL_EPS)
+        curve.append(r)
+        print(f'  [{obs_source}] {ckpt:>7d} steps → ep_rew_mean={r:.2f}')
+
+    return checkpoints, curve
+
+
 def main():
-    nav = calibrate_from_csv()
-    print(f'[nav_model] v_nominal={nav.v_nominal:.3f} m/s')
-
-    baseline_reward = compute_baseline_reward(nav)
-    print(f'[baseline] nearest_free reward médio: {baseline_reward:.2f}')
-
-    def make_monitored():
-        env = AllocationEnv(
-            num_robots=3, waypoints=WAYPOINT_SETS['expanded'],
-            episode_len=30, inter_arrival=15, obs_source='yolo', nav_model=nav)
-        return Monitor(env)
-
-    vec_env = make_vec_env(make_monitored, n_envs=8, seed=42)
-
-    model = PPO('MlpPolicy', vec_env, verbose=1, seed=42)
-    cb = EpisodeRewardCallback(eval_freq=8192)
-
-    print('[train] rodando 500k timesteps...')
-    model.learn(total_timesteps=500_000, callback=cb)
-
-    out_model = os.path.join(_REPO, 'models', 'ppo_allocator_yolo.zip')
-    model.save(out_model)
-    print(f'[done] modelo salvo em {out_model}')
-    print(f'[curva] {len(cb.rewards)} pontos coletados')
-
-    if cb.rewards:
-        _plot(cb.timesteps, cb.rewards, baseline_reward)
-    else:
-        print('[erro] nenhum ponto coletado — aumentar episode_len ou n_envs')
-
-
-def _plot(timesteps, rewards, baseline_reward):
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
 
-    rewards = np.array(rewards)
-    window = max(1, len(rewards) // 10)
-    if len(rewards) >= window:
-        smooth = np.convolve(rewards, np.ones(window) / window, mode='valid')
-        ts_smooth = timesteps[window - 1:]
-    else:
-        smooth, ts_smooth = rewards, timesteps
+    nav = calibrate_from_csv()
+    print(f'[nav_model] v_nominal={nav.v_nominal:.3f} m/s\n')
 
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.plot(timesteps, rewards, alpha=0.25, color='#7B2D8B', linewidth=0.8)
-    ax.plot(ts_smooth, smooth, color='#7B2D8B', linewidth=2,
-            label='PPO(yolo) — suavizado')
-    ax.axhline(baseline_reward, color='#888', linestyle='--', linewidth=1.5,
-               label=f'nearest_free ({baseline_reward:.1f})')
-    ax.set_xlabel('Timesteps de treino')
-    ax.set_ylabel('Reward médio por episódio')
-    ax.set_title('CERISE — Curva de Aprendizado PPO vs Baseline')
-    ax.legend()
+    print('Calculando baseline nearest_free...')
+    bl_r = baseline_reward(nav, N_EVAL_EPS)
+    print(f'  nearest_free ep_rew_mean={bl_r:.2f}\n')
+
+    print('Treinando PPO(yolo) com checkpoints...')
+    steps, curve_yolo = train_with_checkpoints('yolo', nav)
+
+    print('\nTreinando PPO(odom) com checkpoints...')
+    _, curve_odom = train_with_checkpoints('odom', nav)
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(steps, curve_yolo, color='#7B2D8B', linewidth=2, marker='o',
+            markersize=4, label='PPO(YOLO)')
+    ax.plot(steps, curve_odom, color='#2D7B8B', linewidth=2, marker='s',
+            markersize=4, label='PPO(odom)')
+    ax.axhline(bl_r, color='#888888', linewidth=1.5, linestyle='--',
+               label=f'nearest_free ({bl_r:.1f})')
+
+    ax.set_xlabel('Timesteps de treino', fontsize=12)
+    ax.set_ylabel('Reward médio por episódio', fontsize=12)
+    ax.set_title('CERISE — Curva de Aprendizado PPO(YOLO) vs PPO(odom)',
+                 fontsize=13, fontweight='bold')
+    ax.legend(fontsize=11)
     ax.grid(alpha=0.3)
-    fig.tight_layout()
+    ax.set_xlim(0, TOTAL_STEPS)
 
-    out = os.path.join(_REPO, 'docs', 'rl_learning_curve.png')
-    fig.savefig(out, dpi=150)
-    print(f'[plot] salvo em {out}')
+    out = os.path.join(_REPO, 'docs', 'rl_learning_curve_ablation.png')
+    fig.tight_layout()
+    fig.savefig(out, dpi=150, bbox_inches='tight')
+    print(f'\n[plot] salvo em {out}')
 
 
 if __name__ == '__main__':
