@@ -4,15 +4,15 @@ Sem um teto ótimo, não dá para saber se o gap PPO↔nearest_free é grande ou
 ambos já estão perto do melhor possível. Este módulo fornece dois tetos:
 
   1. clairvoyant_step_policy — oráculo MÍOPE de 1 passo: a cada demanda escolhe o
-     robô que minimiza o tempo de navegação DETERMINÍSTICO (robô->origem->destino),
-     considerando TODOS os robôs (não só os livres como o nearest_free). Revela
-     quanto a restrição "só livres" custa.
+     robô que minimiza o RESPONSE_TIME determinístico (espera até liberar +
+     travel robô->origem->destino), considerando TODOS os robôs (não só os livres
+     como o nearest_free). Revela quanto a restrição "só livres" custa.
 
   2. make_oracle_policy — oráculo CLARIVIDENTE do episódio: conhece a sequência
      inteira de demandas e resolve por beam search a atribuição que minimiza a
-     soma dos tempos de navegação (mesma métrica que o makespan do eval). É o
-     limite inferior prático da latência — o teto contra o qual se mede o
-     optimality gap das políticas.
+     soma dos response_time (espera + travel) — a MESMA métrica otimizada pelo
+     reward do env e reportada no eval. É o limite inferior prático contra o qual
+     se mede o optimality gap das políticas.
 
 Ambos reusam `NavModel.travel_time(..., rng=None)` (custo determinístico) e a
 mesma dinâmica de `AllocationEnv.step` (espera por robô ocupado + inter_arrival),
@@ -21,21 +21,23 @@ para que o plano seja um teto válido sob as MESMAS regras do ambiente.
 
 
 def clairvoyant_step_policy(obs, env):
-    """Escolhe o robô de menor tempo de navegação para a demanda corrente.
+    """Escolhe o robô de menor response_time (espera + travel) para a demanda.
 
     Diferente de nearest_free, considera todos os robôs (inclusive ocupados):
-    como a métrica de latência conta apenas o tempo de navegação da tarefa, o
-    robô mais próximo da origem é o de menor custo, esteja livre ou não.
+    o custo de um robô ocupado é a espera até ele liberar (busy restante) mais o
+    travel da tarefa. Em baixa carga (todos livres) recai no "mais próximo"; sob
+    fila, prefere quem combina proximidade e disponibilidade.
 
-    Recebe o env para acessar o destino real (não presente na observação) e as
-    posições verdadeiras (sem o ruído de percepção da obs).
+    Recebe o env para acessar o destino real (não presente na observação), as
+    posições verdadeiras (sem o ruído de percepção da obs) e o busy atual.
     """
     origin, dest = env._demands[env._step_idx]
-    nav = env.nav
     positions = env._positions
+    busy = env._busy
     return min(
         range(env.num_robots),
-        key=lambda r: nav.travel_time(positions[r], origin, dest, rng=None),
+        key=lambda r: busy[r] + env._nav_per_robot[r].travel_time(
+            positions[r], origin, dest, rng=None),
     )
 
 
@@ -52,26 +54,32 @@ def make_oracle_policy(beam_width=300):
     def predict(obs, env):
         if env._step_idx == 0:
             cache['plan'], _ = plan_beam(
-                env._demands, env._positions, env._busy, env.nav,
+                env._demands, env._positions, env._busy, env._nav_per_robot,
                 env.num_robots, env.inter_arrival, beam_width)
         return cache['plan'][env._step_idx]
 
     return predict
 
 
-def plan_beam(demands, init_positions, init_busy, nav, num_robots,
+def plan_beam(demands, init_positions, init_busy, nav_or_list, num_robots,
               inter_arrival, beam_width=300):
-    """Beam search sobre a sequência de demandas; minimiza a soma de travels.
+    """Beam search sobre a sequência de demandas; minimiza a soma de response_time.
 
     Replica a dinâmica de AllocationEnv.step (custo determinístico):
-      1. se o robô está ocupado, o relógio avança até ele liberar (espera);
+      1. se o robô está ocupado, registra a espera e o relógio avança até liberar;
       2. calcula o travel determinístico robô->origem->destino;
       3. o robô fica ocupado por travel e sua posição passa a ser o destino;
       4. entre demandas, o relógio avança inter_arrival.
 
-    Retorna (lista_de_ações, custo_total). custo_total = soma dos travels, que é
-    exatamente o makespan reportado no eval.
+    Retorna (lista_de_ações, custo_total). custo_total = soma dos response_time
+    (espera + travel), exatamente a métrica reportada no eval.
     """
+    # Aceita NavModel único (compat) ou lista por robô (heterogeneidade).
+    if isinstance(nav_or_list, list):
+        navs = nav_or_list
+    else:
+        navs = [nav_or_list] * num_robots
+
     n_steps = len(demands)
     # Cada item do beam: (custo, positions, busy, actions).
     beam = [(
@@ -87,9 +95,10 @@ def plan_beam(demands, init_positions, init_busy, nav, num_robots,
         for cost, positions, busy, actions in beam:
             for r in range(num_robots):
                 b = busy
-                if b[r] > 0.0:  # robô ocupado: espera liberar
-                    b = _advance(b, b[r])
-                travel = nav.travel_time(positions[r], origin, dest, rng=None)
+                wait = b[r] if b[r] > 0.0 else 0.0
+                if wait > 0.0:  # robô ocupado: espera liberar
+                    b = _advance(b, wait)
+                travel = navs[r].travel_time(positions[r], origin, dest, rng=None)
                 b = list(b)
                 b[r] = travel
                 pos = list(positions)
@@ -97,7 +106,8 @@ def plan_beam(demands, init_positions, init_busy, nav, num_robots,
                 b = tuple(b)
                 if not last:
                     b = _advance(b, inter_arrival)
-                cand.append((cost + travel, tuple(pos), b, actions + (r,)))
+                # custo = response_time = espera + travel (espelha o reward do env)
+                cand.append((cost + wait + travel, tuple(pos), b, actions + (r,)))
         cand.sort(key=lambda x: x[0])
         beam = cand[:beam_width]
 

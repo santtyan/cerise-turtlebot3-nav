@@ -34,6 +34,7 @@ class TaskAllocator(Node):
 
     def on_demand(self, msg):
         demand = json.loads(msg.data)
+        demand['_arrived_at'] = time.time()
         self.queue.append(demand)
         did = demand['id']
         self.get_logger().info(f'Demanda {did} | fila: {len(self.queue)}')
@@ -91,23 +92,24 @@ class TaskAllocator(Node):
 
     def on_result(self, future, robot, demand, t0):
         latency = time.time() - t0
+        wait_s = t0 - demand.get('_arrived_at', t0)
         did = demand['id']
-        self.get_logger().info(f'[LATENCIA] {robot} demanda {did}: {latency:.2f}s')
-        self.log_csv(demand, robot, latency)
+        self.get_logger().info(f'[LATENCIA] {robot} demanda {did}: {latency:.2f}s (wait={wait_s:.2f}s)')
+        self.log_csv(demand, robot, latency, wait_s)
         self.busy[robot] = False
         self.try_dispatch()
 
     def init_csv(self):
         if not os.path.exists(LOG_FILE):
             with open(LOG_FILE, 'w', newline='') as f:
-                csv.writer(f).writerow(['timestamp','demand_id','origin','dest','robot','latency_s','policy'])
+                csv.writer(f).writerow(['timestamp','demand_id','origin','dest','robot','latency_s','wait_s','policy'])
 
-    def log_csv(self, demand, robot, latency):
+    def log_csv(self, demand, robot, latency, wait_s=0.0):
         with open(LOG_FILE, 'a', newline='') as f:
             csv.writer(f).writerow([
                 time.strftime('%Y-%m-%d %H:%M:%S'),
                 demand['id'], demand['origin'], demand['dest'],
-                robot, round(latency, 2), 'baseline'
+                robot, round(latency, 2), round(wait_s, 2), 'baseline'
             ])
 
 def main():

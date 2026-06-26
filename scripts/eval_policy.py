@@ -2,9 +2,13 @@
 """Avalia PPO vs baseline nearest_free no AllocationEnv (env leve).
 
 Roda N episódios com sementes PAREADAS (mesma sequência de demandas para todas
-as políticas) e reporta métricas comparáveis para o paper:
-  - latência média e p95
-  - makespan médio (tempo até a última tarefa terminar)
+as políticas) e reporta métricas comparáveis para o paper. A métrica PRINCIPAL é
+o response_time (espera na fila + travel) — a mesma que o reward do env e o
+oráculo otimizam. Sob baixa carga a espera é ~0 e response_time ≈ latência de
+viagem; sob alta carga elas divergem e é onde o RL pode superar o guloso.
+  - response_time médio e p95 (PRINCIPAL)
+  - latência de viagem média e p95 (só travel, secundária)
+  - custo acumulado por episódio = soma dos response_time (o que o beam minimiza)
   - balanceamento de carga (desvio do nº de tarefas por robô)
   - taxa de ação inválida
 
@@ -40,29 +44,32 @@ def make_env(args, nav, obs_source=None):
 def eval_policy(predict_fn, args, nav, n_episodes, obs_source=None):
     """Roda predict_fn em n_episodes (sementes 0..n-1) e agrega métricas."""
     env = make_env(args, nav, obs_source)
-    travels, responses, makespans, imbalances, invalid, total = [], [], [], [], 0, 0
+    travels, responses, ep_costs, imbalances, invalid, total = [], [], [], [], 0, 0
     for ep in range(n_episodes):
         obs, _ = env.reset(seed=ep)
-        ep_travels, done = [], False
+        ep_travels, ep_responses, done = [], [], False
         while not done:
             a = predict_fn(obs, env)
             obs, _, term, trunc, info = env.step(a)
             ep_travels.append(info['travel_time'])
-            responses.append(info['response_time'])
+            ep_responses.append(info['response_time'])
             invalid += int(info['invalid'])
             total += 1
             done = term or trunc
         travels.extend(ep_travels)
-        makespans.append(sum(ep_travels))
+        responses.extend(ep_responses)
+        # custo do episódio = soma dos response_time (espera+travel), exatamente
+        # o que o beam do oráculo minimiza. NÃO é makespan de parede.
+        ep_costs.append(sum(ep_responses))
         counts = info['task_count']
         mean_c = sum(counts) / len(counts)
         imbalances.append(float(np.std(counts)) / (mean_c + 1.0))
     return {
-        'lat_mean': float(np.mean(travels)),
-        'lat_p95': float(np.percentile(travels, 95)),
         'resp_mean': float(np.mean(responses)),
         'resp_p95': float(np.percentile(responses, 95)),
-        'makespan_mean': float(np.mean(makespans)),
+        'lat_mean': float(np.mean(travels)),
+        'lat_p95': float(np.percentile(travels, 95)),
+        'resp_cost_mean': float(np.mean(ep_costs)),
         'load_imbalance': float(np.mean(imbalances)),
         'invalid_rate': invalid / max(1, total),
         '_travels': travels,
@@ -95,11 +102,20 @@ def main():
     results = {}
 
     baseline_fn = lambda obs, env: baselines.nearest_free_policy(obs, env.num_robots)
+    random_fn   = lambda obs, env: baselines.random_policy(obs, env.num_robots)
+    rr_fn       = baselines.make_round_robin(args.num_robots)
 
     if args.ablation:
         from stable_baselines3 import PPO
         yolo_path = os.path.join(_REPO, 'models', 'ppo_allocator_yolo.zip')
         odom_path = os.path.join(_REPO, 'models', 'ppo_allocator_odom.zip')
+
+        print('Avaliando random...')
+        results['Random'] = eval_policy(random_fn, args, nav, args.episodes, 'yolo')
+
+        print('Avaliando round-robin...')
+        results['Round\nRobin'] = eval_policy(
+            baselines.make_round_robin(args.num_robots), args, nav, args.episodes, 'yolo')
 
         print('Avaliando baseline...')
         results['Baseline\n(nearest_free)'] = eval_policy(baseline_fn, args, nav, args.episodes, 'yolo')
@@ -142,17 +158,17 @@ def main():
 
 
 def _print_table(results):
-    cols = ['lat_mean', 'lat_p95', 'resp_mean', 'resp_p95', 'makespan_mean', 'load_imbalance', 'invalid_rate']
-    # Optimality gap (%) relativo ao makespan do oráculo clarividente, se presente.
+    cols = ['resp_mean', 'resp_p95', 'lat_mean', 'lat_p95', 'resp_cost_mean', 'load_imbalance', 'invalid_rate']
+    # Optimality gap (%) relativo ao custo de response_time do oráculo, se presente.
     oracle_key = next((k for k in results if 'Oráculo' in k), None)
-    oracle_ms = results[oracle_key]['makespan_mean'] if oracle_key else None
+    oracle_cost = results[oracle_key]['resp_cost_mean'] if oracle_key else None
 
-    header = ['política'] + cols + (['gap_%'] if oracle_ms else [])
+    header = ['política'] + cols + (['gap_%'] if oracle_cost else [])
     print('  '.join(f'{h:>16s}' for h in header))
     for name, m in results.items():
         row = [name.replace('\n', ' ')] + [f'{m[c]:.3f}' for c in cols]
-        if oracle_ms:
-            gap = 100.0 * (m['makespan_mean'] - oracle_ms) / oracle_ms
+        if oracle_cost:
+            gap = 100.0 * (m['resp_cost_mean'] - oracle_cost) / oracle_cost
             row.append(f'{gap:+.1f}')
         print('  '.join(f'{v:>16s}' for v in row))
 
@@ -165,8 +181,9 @@ def _plot(results, ablation=False):
     names = list(results.keys())
     colors = ['#888888', '#7B2D8B', '#2D7B8B', '#C2783F', '#3FA34D'][:len(names)]
 
-    metrics = ['lat_mean', 'lat_p95', 'makespan_mean', 'load_imbalance']
-    labels = ['Latência média (s)', 'Latência p95 (s)', 'Makespan médio (s)', 'Desbalanceamento']
+    metrics = ['resp_mean', 'resp_p95', 'resp_cost_mean', 'load_imbalance']
+    labels = ['Response time médio (s)', 'Response time p95 (s)',
+              'Custo resp. acum. (s)', 'Desbalanceamento']
 
     fig, axes = plt.subplots(1, len(metrics), figsize=(4 * len(metrics), 4.5))
     for ax, met, lab in zip(axes, metrics, labels):
@@ -202,7 +219,7 @@ def _plot_latency_dist(results, ablation=False):
 
     names = list(results.keys())
     colors = ['#888888', '#7B2D8B', '#2D7B8B', '#C2783F', '#3FA34D'][:len(names)]
-    data = [results[n]['_travels'] for n in names]
+    data = [results[n]['_responses'] for n in names]
 
     fig, ax = plt.subplots(figsize=(7, 5))
     bp = ax.boxplot(data, patch_artist=True, notch=False,
@@ -212,8 +229,8 @@ def _plot_latency_dist(results, ablation=False):
         patch.set_alpha(0.8)
 
     ax.set_xticklabels(names, fontsize=10)
-    ax.set_ylabel('Latência por tarefa (s)', fontsize=11)
-    ax.set_title('CERISE — Distribuição de Latências por Política', fontsize=12, fontweight='bold')
+    ax.set_ylabel('Response time por tarefa (s)', fontsize=11)
+    ax.set_title('CERISE — Distribuição de Response Time por Política', fontsize=12, fontweight='bold')
     ax.grid(axis='y', alpha=0.3)
 
     fname = 'rl_latency_boxplot_ablation.png' if ablation else 'rl_latency_boxplot.png'

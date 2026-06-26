@@ -10,11 +10,20 @@ Se os dois montarem a observação de forma diferente, a política treinada rece
 lixo em produção. Por isso encode_obs() é a única função que ambos chamam, e
 o teste de paridade compara os dois caminhos.
 
-Layout da observação (vetor float32 de tamanho 3*N + 2):
-    [ r0_x, r0_y, r0_busy,        # robô 0
-      r1_x, r1_y, r1_busy,        # robô 1
-      ...                         # ... N robôs
-      demand_origin_x, demand_origin_y ]
+Layout da observação (vetor float32 de tamanho 3*N + 4 + 4*LOOKAHEAD):
+    [ r0_x, r0_y, r0_busy,                 # robô 0
+      r1_x, r1_y, r1_busy,                 # robô 1
+      ...                                  # ... N robôs
+      cur_origin_x, cur_origin_y,          # demanda corrente: origem
+      cur_dest_x,   cur_dest_y,            # demanda corrente: destino
+      f0_origin_x, f0_origin_y, f0_dest_x, f0_dest_y,   # próxima demanda
+      ... ]                                # ... LOOKAHEAD demandas futuras
+
+Por que destino + lookahead: sem o destino a política nem vê o que define o
+tempo de viagem; sem as próximas demandas ela não consegue ANTECIPAR (segurar um
+robô para a demanda seguinte), que é a única forma de superar a regra fixa
+nearest_free sob alta carga. Slots de demanda futura inexistentes (fim do
+episódio / fila curta) recebem PAD_VALUE, fora da arena e distinguível.
 
 - coordenadas em metros, espaço esperado ~[-COORD_BOUND, COORD_BOUND]
 - busy = tempo restante de ocupação normalizado por BUSY_REF (0 = livre)
@@ -27,11 +36,17 @@ import numpy as np
 COORD_BOUND = 3.0
 # Tempo de referência (s) para normalizar busy_remaining para ~[0, 1].
 BUSY_REF = 60.0
+# Quantas demandas futuras (além da corrente) entram na observação.
+LOOKAHEAD = 2
+# Valor de preenchimento para slots de demanda futura inexistentes. Fica no
+# limite da arena (fora dos waypoints reais ~[-0.55, 0.55]) para a política
+# aprender "não há demanda aqui".
+PAD_VALUE = COORD_BOUND
 
 
 def obs_dim(num_robots):
     """Tamanho do vetor de observação para N robôs."""
-    return 3 * num_robots + 2
+    return 3 * num_robots + 4 + 4 * LOOKAHEAD
 
 
 def obs_bounds(num_robots):
@@ -46,15 +61,19 @@ def obs_bounds(num_robots):
     return low, high
 
 
-def encode_obs(robot_positions, robot_busy_remaining, demand_origin):
+def encode_obs(robot_positions, robot_busy_remaining, demand_origin,
+               demand_dest, future_demands=()):
     """Monta o vetor de observação a partir do estado bruto.
 
     robot_positions: sequência de (x, y) por robô, em metros.
     robot_busy_remaining: sequência de tempo restante de ocupação (s) por robô.
     demand_origin: (x, y) da origem da demanda corrente, em metros.
+    demand_dest: (x, y) do destino da demanda corrente, em metros.
+    future_demands: sequência de ((ox, oy), (dx, dy)) das próximas demandas;
+        truncada/preenchida a LOOKAHEAD.
 
-    Retorna np.ndarray float32 de tamanho 3*N + 2. Coordenadas são recortadas a
-    [-COORD_BOUND, COORD_BOUND] e busy normalizado/recortado a [0, 1].
+    Retorna np.ndarray float32 de tamanho obs_dim(N). Coordenadas são recortadas
+    a [-COORD_BOUND, COORD_BOUND] e busy normalizado/recortado a [0, 1].
     """
     n = len(robot_positions)
     assert len(robot_busy_remaining) == n, 'positions e busy com tamanhos diferentes'
@@ -64,15 +83,33 @@ def encode_obs(robot_positions, robot_busy_remaining, demand_origin):
         out[3 * r + 0] = _clip_coord(x)
         out[3 * r + 1] = _clip_coord(y)
         out[3 * r + 2] = _clip01(robot_busy_remaining[r] / BUSY_REF)
-    out[3 * n + 0] = _clip_coord(demand_origin[0])
-    out[3 * n + 1] = _clip_coord(demand_origin[1])
+
+    base = 3 * n
+    out[base + 0] = _clip_coord(demand_origin[0])
+    out[base + 1] = _clip_coord(demand_origin[1])
+    out[base + 2] = _clip_coord(demand_dest[0])
+    out[base + 3] = _clip_coord(demand_dest[1])
+
+    fut = list(future_demands)[:LOOKAHEAD]
+    for k in range(LOOKAHEAD):
+        off = base + 4 + 4 * k
+        if k < len(fut):
+            (ox, oy), (dx, dy) = fut[k]
+            out[off + 0] = _clip_coord(ox)
+            out[off + 1] = _clip_coord(oy)
+            out[off + 2] = _clip_coord(dx)
+            out[off + 3] = _clip_coord(dy)
+        else:
+            out[off:off + 4] = PAD_VALUE
     return out
 
 
 def decode_obs(obs, num_robots):
     """Inverso de encode_obs (para testes/round-trip).
 
-    Retorna (robot_positions, robot_busy_remaining_normalizado, demand_origin).
+    Retorna (robot_positions, robot_busy_remaining_normalizado, demand_origin,
+    demand_dest, future_demands). future_demands é a lista de ((ox,oy),(dx,dy))
+    de tamanho LOOKAHEAD (slots vazios vêm como PAD_VALUE).
     Nota: busy é retornado normalizado (não em segundos), pois encode descarta
     a escala original ao normalizar.
     """
@@ -81,8 +118,17 @@ def decode_obs(obs, num_robots):
     for r in range(num_robots):
         positions.append((float(obs[3 * r + 0]), float(obs[3 * r + 1])))
         busy.append(float(obs[3 * r + 2]))
-    origin = (float(obs[3 * num_robots + 0]), float(obs[3 * num_robots + 1]))
-    return positions, busy, origin
+    base = 3 * num_robots
+    origin = (float(obs[base + 0]), float(obs[base + 1]))
+    dest = (float(obs[base + 2]), float(obs[base + 3]))
+    future = []
+    for k in range(LOOKAHEAD):
+        off = base + 4 + 4 * k
+        future.append((
+            (float(obs[off + 0]), float(obs[off + 1])),
+            (float(obs[off + 2]), float(obs[off + 3])),
+        ))
+    return positions, busy, origin, dest, future
 
 
 def _clip_coord(v):

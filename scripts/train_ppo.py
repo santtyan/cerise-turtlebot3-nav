@@ -18,11 +18,13 @@ import sys
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO, 'src', 'cerise_nav'))
 
-from stable_baselines3 import PPO            # noqa: E402
-from stable_baselines3.common.env_util import make_vec_env  # noqa: E402
+from stable_baselines3 import PPO                                       # noqa: E402
+from stable_baselines3.common.env_util import make_vec_env              # noqa: E402
+from stable_baselines3.common.callbacks import (                        # noqa: E402
+    EvalCallback, StopTrainingOnRewardThreshold, CallbackList)
 
 from cerise_nav.rl.allocation_env import AllocationEnv, WAYPOINT_SETS  # noqa: E402
-from cerise_nav.rl.nav_model import calibrate_from_csv      # noqa: E402
+from cerise_nav.rl.nav_model import calibrate_from_csv                  # noqa: E402
 
 
 def _tensorboard_available():
@@ -60,6 +62,11 @@ def main():
     p.add_argument('--no-load-balance', action='store_true')
     p.add_argument('--out-dir', default=os.path.join(_REPO, 'models'))
     p.add_argument('--tensorboard', default=os.path.join(_REPO, 'runs'))
+    p.add_argument('--reward-threshold', type=float, default=None,
+                   help='Para o treino quando ep_rew_mean >= este valor.')
+    p.add_argument('--eval-freq', type=int, default=10_000,
+                   help='Frequência de avaliação do EvalCallback (steps).')
+    p.add_argument('--eval-episodes', type=int, default=50)
     args = p.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
@@ -82,13 +89,44 @@ def main():
                 tensorboard_log=tb_log)
 
     run_name = f'ppo_allocator_{args.obs_source}'
+    best_dir = os.path.join(args.out_dir, f'{run_name}_best')
+
+    # EvalCallback: avalia periodicamente e salva o MELHOR checkpoint.
+    # Sem isso, salvamos o modelo do último step, que pode ter overfitado.
+    eval_env = make_vec_env(AllocationEnv, n_envs=1,
+                            seed=args.seed + 1000, env_kwargs=env_kwargs)
+    callbacks = []
+    if args.reward_threshold is not None:
+        stop_cb = StopTrainingOnRewardThreshold(
+            reward_threshold=args.reward_threshold, verbose=1)
+        eval_cb = EvalCallback(
+            eval_env, best_model_save_path=best_dir,
+            eval_freq=args.eval_freq, n_eval_episodes=args.eval_episodes,
+            callback_on_new_best=stop_cb, verbose=1)
+    else:
+        eval_cb = EvalCallback(
+            eval_env, best_model_save_path=best_dir,
+            eval_freq=args.eval_freq, n_eval_episodes=args.eval_episodes,
+            verbose=1)
+    callbacks.append(eval_cb)
+
     print(f'[train] {run_name}: {args.timesteps} timesteps, '
           f'{args.num_robots} robôs, obs={args.obs_source}')
-    model.learn(total_timesteps=args.timesteps, tb_log_name=run_name)
+    model.learn(total_timesteps=args.timesteps, tb_log_name=run_name,
+                callback=CallbackList(callbacks))
 
-    out_path = os.path.join(args.out_dir, f'{run_name}.zip')
-    model.save(out_path)
-    print(f'[done] modelo salvo em {out_path}')
+    # Salva o modelo do último step E copia o melhor checkpoint como saída principal.
+    last_path = os.path.join(args.out_dir, f'{run_name}_last.zip')
+    model.save(last_path)
+    best_path = os.path.join(best_dir, 'best_model.zip')
+    out_path  = os.path.join(args.out_dir, f'{run_name}.zip')
+    if os.path.exists(best_path):
+        import shutil
+        shutil.copy2(best_path, out_path)
+        print(f'[done] melhor modelo salvo em {out_path} (último em {last_path})')
+    else:
+        model.save(out_path)
+        print(f'[done] modelo salvo em {out_path}')
 
 
 if __name__ == '__main__':

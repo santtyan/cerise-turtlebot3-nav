@@ -75,14 +75,24 @@ class AllocationEnv(gym.Env):
 
     def __init__(self, num_robots=3, waypoints=None, episode_len=20,
                  nav_model=None, t_ref=None, load_balance=True,
-                 inter_arrival=30.0, obs_source='yolo', seed=None):
+                 inter_arrival=30.0, obs_source='yolo', seed=None,
+                 nav_models=None):
         super().__init__()
         self.num_robots = int(num_robots)
         self.waypoints = dict(waypoints) if waypoints else dict(DEFAULT_WAYPOINTS)
         self._wp_names = list(self.waypoints.keys())
         assert len(self._wp_names) >= 2, 'precisa de >= 2 waypoints'
         self.episode_len = int(episode_len)
-        self.nav = nav_model if nav_model is not None else NavModel()
+        # nav_models: lista de NavModel por robô (heterogeneidade de velocidade).
+        # Se None, usa nav_model (ou default) para todos os robôs.
+        if nav_models is not None:
+            assert len(nav_models) == self.num_robots, 'nav_models deve ter num_robots elementos'
+            self._nav_per_robot = list(nav_models)
+        else:
+            base_nav = nav_model if nav_model is not None else NavModel()
+            self._nav_per_robot = [base_nav] * self.num_robots
+        # Compat: self.nav aponta para o primeiro modelo (scripts legados usam t_ref via _estimate_t_ref).
+        self.nav = self._nav_per_robot[0]
         self.load_balance = load_balance
         # Fonte do estado de posição para a ablação: 'yolo', 'odom' ou 'none'.
         assert obs_source in ('yolo', 'odom', 'none'), obs_source
@@ -106,6 +116,7 @@ class AllocationEnv(gym.Env):
         self._positions = None        # list[(x, y)] posição atual de cada robô
         self._busy = None             # list[float] tempo restante de ocupação (s)
         self._task_count = None       # nº de tarefas já atribuídas a cada robô
+        self._idle_time = None        # tempo total livre acumulado por robô (s)
         self._demands = None          # sequência de (origin_xy, dest_xy)
         self._step_idx = None
 
@@ -122,6 +133,7 @@ class AllocationEnv(gym.Env):
         self._positions = [self.waypoints[n] for n in start_names]
         self._busy = [0.0] * self.num_robots
         self._task_count = [0] * self.num_robots
+        self._idle_time = [0.0] * self.num_robots
 
         # Gera a sequência de demandas com a MESMA lógica do demand_generator:
         # random.sample de 2 waypoints distintos.
@@ -151,7 +163,8 @@ class AllocationEnv(gym.Env):
             self._advance_clock(wait_time)
 
         # Tempo de navegação da tarefa (robô -> origem -> destino).
-        travel = self.nav.travel_time(
+        # Usa o modelo de navegação específico do robô (suporta heterogeneidade).
+        travel = self._nav_per_robot[action].travel_time(
             self._positions[action], origin_xy, dest_xy, rng=self._np_rng)
 
         # Atualiza estado do robô escolhido.
@@ -159,7 +172,11 @@ class AllocationEnv(gym.Env):
         self._positions[action] = dest_xy
         self._task_count[action] += 1
 
-        reward += -(travel / self.t_ref)
+        # Objetivo = response_time (espera + travel), não apenas travel: sob
+        # alta carga a espera na fila é o que distingue as políticas, e é a
+        # métrica contra a qual o oráculo é avaliado. wait_time já foi computado
+        # acima (tempo que o robô escolhido ficou ocupado; 0 se estava livre).
+        reward += -((wait_time + travel) / self.t_ref)
 
         if self.load_balance:
             reward -= LOAD_BALANCE_WEIGHT * self._load_imbalance()
@@ -180,6 +197,9 @@ class AllocationEnv(gym.Env):
             'response_time': wait_time + travel,
             'invalid': invalid,
             'task_count': list(self._task_count),
+            # Per-robot logging — vira figura de balanceamento no paper.
+            'idle_time_per_robot': list(self._idle_time),
+            'task_count_per_robot': list(self._task_count),
         }
 
         # Próxima observação (ou a última repetida se terminou).
@@ -189,9 +209,12 @@ class AllocationEnv(gym.Env):
     # -------------------------------------------------------------- helpers
     def _build_obs(self, last=False):
         idx = min(self._step_idx, self.episode_len - 1)
-        origin_xy, _ = self._demands[idx]
+        origin_xy, dest_xy = self._demands[idx]
+        # Janela de lookahead: as próximas demandas já conhecidas do episódio.
+        future = self._demands[idx + 1: idx + 1 + obs_encoding.LOOKAHEAD]
         noisy_pos = self._observed_positions()
-        return obs_encoding.encode_obs(noisy_pos, self._busy, origin_xy)
+        return obs_encoding.encode_obs(
+            noisy_pos, self._busy, origin_xy, dest_xy, future)
 
     def _observed_positions(self):
         """Posições COMO O AGENTE AS VÊ (com ruído do perfil obs_source).
@@ -215,10 +238,16 @@ class AllocationEnv(gym.Env):
         return out
 
     def _advance_clock(self, dt):
-        """Decrementa o tempo de ocupação de todos os robôs em dt (s)."""
+        """Decrementa o tempo de ocupação de todos os robôs em dt (s).
+
+        Acumula idle_time para os robôs que já estavam livres (busy=0) durante dt.
+        Para robôs que ficam livres no meio do intervalo, acumula só o excedente.
+        """
         if dt <= 0:
             return
         for r in range(self.num_robots):
+            free_dt = max(0.0, dt - self._busy[r])
+            self._idle_time[r] += free_dt
             self._busy[r] = max(0.0, self._busy[r] - dt)
 
     def _load_imbalance(self):

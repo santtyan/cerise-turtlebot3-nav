@@ -95,6 +95,7 @@ class RLTaskAllocator(Node):
 
     def on_demand(self, msg):
         demand = json.loads(msg.data)
+        demand['_arrived_at'] = time.time()
         self.queue.append(demand)
         self.get_logger().info(f"Demanda {demand['id']} | fila: {len(self.queue)}")
         self.try_dispatch()
@@ -104,7 +105,7 @@ class RLTaskAllocator(Node):
         if not self.queue:
             return
         demand = self.queue[0]
-        obs = self.build_observation(demand['origin_xy'])
+        obs = self.build_observation(demand, self.queue[1:])
 
         # Inferência PPO síncrona e instantânea — não bloqueia o executor.
         action, _ = self.model.predict(obs, deterministic=True)
@@ -124,17 +125,23 @@ class RLTaskAllocator(Node):
             f"{robot} -> {demand['dest']} (demanda {demand['id']}) [PPO]")
         self.send_goal(robot, demand)
 
-    def build_observation(self, demand_origin):
+    def build_observation(self, demand, future_demands):
         """Monta a observação no MESMO layout do AllocationEnv (obs_encoding).
 
         Posições por robô vêm do YOLO (com identidade resolvida via odom) ou da
         odom pura, conforme obs_source. busy_remaining é estimado pelo tempo
-        decorrido desde o início da tarefa atual.
+        decorrido desde o início da tarefa atual. A demanda corrente fornece
+        origem+destino e a fila fornece a janela de lookahead (próximas demandas),
+        em paridade com AllocationEnv._build_obs.
         """
         est_pos = self.estimate_positions()
         positions = [est_pos[r] for r in self.robots]
         busy_remaining = [self._busy_remaining(r) for r in self.robots]
-        return obs_encoding.encode_obs(positions, busy_remaining, demand_origin)
+        future = [(d['origin_xy'], d['dest_xy'])
+                  for d in future_demands[:obs_encoding.LOOKAHEAD]]
+        return obs_encoding.encode_obs(
+            positions, busy_remaining,
+            demand['origin_xy'], demand['dest_xy'], future)
 
     def estimate_positions(self):
         """Posição estimada por robô conforme obs_source.
@@ -212,9 +219,10 @@ class RLTaskAllocator(Node):
 
     def on_result(self, future, robot, demand, t0):
         latency = time.time() - t0
+        wait_s = t0 - demand.get('_arrived_at', t0)
         self.get_logger().info(
-            f"[LATENCIA] {robot} demanda {demand['id']}: {latency:.2f}s")
-        self.log_csv(demand, robot, latency)
+            f"[LATENCIA] {robot} demanda {demand['id']}: {latency:.2f}s (wait={wait_s:.2f}s)")
+        self.log_csv(demand, robot, latency, wait_s)
         self.busy[robot] = False
         self.busy_start[robot] = None
         self.try_dispatch()
@@ -225,16 +233,16 @@ class RLTaskAllocator(Node):
             with open(LOG_FILE, 'w', newline='') as f:
                 csv.writer(f).writerow(
                     ['timestamp', 'demand_id', 'origin', 'dest', 'robot',
-                     'latency_s', 'policy'])
+                     'latency_s', 'wait_s', 'policy'])
 
-    def log_csv(self, demand, robot, latency):
+    def log_csv(self, demand, robot, latency, wait_s=0.0):
         fb = (self._fallback_count / self._assoc_count
               if self._assoc_count else 0.0)
         with open(LOG_FILE, 'a', newline='') as f:
             csv.writer(f).writerow([
                 time.strftime('%Y-%m-%d %H:%M:%S'),
                 demand['id'], demand['origin'], demand['dest'],
-                robot, round(latency, 2), f'ppo_{self.obs_source}'])
+                robot, round(latency, 2), round(wait_s, 2), f'ppo_{self.obs_source}'])
         self.get_logger().info(f'[FALLBACK] fração acumulada: {fb:.2%}')
 
 

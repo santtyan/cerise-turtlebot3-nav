@@ -73,10 +73,10 @@ def calibrate_from_csv(csv_path=None, waypoints=None):
     if csv_path is None:
         csv_path = os.path.expanduser('~/cerise_log.csv')
     if waypoints is None:
-        # Mesmos waypoints de demand_generator.py
+        # Mesmos waypoints de demand_generator.py / DEFAULT_WAYPOINTS
         waypoints = {
-            'A': (0.0, 0.0), 'B': (1.5, 0.0),
-            'C': (0.0, -1.5), 'D': (1.5, -1.5),
+            'A': (-0.55,  0.55), 'B': ( 0.55,  0.55),
+            'C': (-0.55, -0.55), 'D': ( 0.55, -0.55),
         }
     if not os.path.exists(csv_path):
         return NavModel()
