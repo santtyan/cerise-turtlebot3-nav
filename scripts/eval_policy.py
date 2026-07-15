@@ -107,8 +107,11 @@ def main():
 
     if args.ablation:
         from stable_baselines3 import PPO
+        from sb3_contrib import MaskablePPO
         yolo_path = os.path.join(_REPO, 'models', 'ppo_allocator_yolo.zip')
         odom_path = os.path.join(_REPO, 'models', 'ppo_allocator_odom.zip')
+        yolo_masked_path = os.path.join(_REPO, 'models', 'ppo_allocator_yolo_masked.zip')
+        odom_masked_path = os.path.join(_REPO, 'models', 'ppo_allocator_odom_masked.zip')
 
         print('Avaliando random...')
         results['Random'] = eval_policy(random_fn, args, nav, args.episodes, 'yolo')
@@ -132,6 +135,30 @@ def main():
             lambda obs, env: int(model_odom.predict(obs, deterministic=True)[0]),
             args, nav, args.episodes, 'odom')
 
+        # Variantes com action masking (opcionais — só entram se os modelos já
+        # foram treinados com `train_ppo.py --masked`). A máscara vem direto do
+        # AllocationEnv (mesmo método usado no treino), sem precisar de ActionMasker
+        # aqui, já que estamos chamando env.step() manualmente em eval_policy().
+        if os.path.exists(yolo_masked_path):
+            print('Avaliando PPO(yolo, masked)...')
+            model_yolo_masked = MaskablePPO.load(yolo_masked_path)
+            results['PPO\n(YOLO, masked)'] = eval_policy(
+                lambda obs, env: int(model_yolo_masked.predict(
+                    obs, action_masks=env.action_masks(), deterministic=True)[0]),
+                args, nav, args.episodes, 'yolo')
+        else:
+            print(f'[skip] {yolo_masked_path} não encontrado — rode train_ppo.py --obs-source yolo --masked')
+
+        if os.path.exists(odom_masked_path):
+            print('Avaliando PPO(odom, masked)...')
+            model_odom_masked = MaskablePPO.load(odom_masked_path)
+            results['PPO\n(odom, masked)'] = eval_policy(
+                lambda obs, env: int(model_odom_masked.predict(
+                    obs, action_masks=env.action_masks(), deterministic=True)[0]),
+                args, nav, args.episodes, 'odom')
+        else:
+            print(f'[skip] {odom_masked_path} não encontrado — rode train_ppo.py --obs-source odom --masked')
+
         print('Avaliando Clairvoyant (oráculo míope)...')
         results['Clairvoyant\n(1 passo)'] = eval_policy(
             oracle.clairvoyant_step_policy, args, nav, args.episodes, 'none')
@@ -144,13 +171,20 @@ def main():
         results['nearest_free'] = eval_policy(baseline_fn, args, nav, args.episodes)
 
         if args.model:
-            from stable_baselines3 import PPO
-            model = PPO.load(args.model)
-            label = 'PPO(yolo)' if 'yolo' in args.model else 'PPO(odom)'
+            is_masked = 'masked' in os.path.basename(args.model)
+            if is_masked:
+                from sb3_contrib import MaskablePPO
+                model = MaskablePPO.load(args.model)
+                predict_fn = lambda obs, env: int(model.predict(
+                    obs, action_masks=env.action_masks(), deterministic=True)[0])
+            else:
+                from stable_baselines3 import PPO
+                model = PPO.load(args.model)
+                predict_fn = lambda obs, env: int(model.predict(obs, deterministic=True)[0])
+            obs_kind = 'yolo' if 'yolo' in args.model else 'odom'
+            label = f'PPO({obs_kind}, masked)' if is_masked else f'PPO({obs_kind})'
             print(f'Avaliando {label}...')
-            results[label] = eval_policy(
-                lambda obs, env: int(model.predict(obs, deterministic=True)[0]),
-                args, nav, args.episodes)
+            results[label] = eval_policy(predict_fn, args, nav, args.episodes)
 
     _print_table(results)
     if args.plot:
@@ -179,13 +213,15 @@ def _plot(results, ablation=False):
     import matplotlib.pyplot as plt
 
     names = list(results.keys())
-    colors = ['#888888', '#7B2D8B', '#2D7B8B', '#C2783F', '#3FA34D'][:len(names)]
+    _palette = ['#AAAAAA', '#E57373', '#FF8C00', '#888888', '#7B2D8B',
+                '#2D7B8B', '#C2783F', '#3FA34D']
+    colors = (_palette * 2)[:len(names)]
 
     metrics = ['resp_mean', 'resp_p95', 'resp_cost_mean', 'load_imbalance']
     labels = ['Response time médio (s)', 'Response time p95 (s)',
               'Custo resp. acum. (s)', 'Desbalanceamento']
 
-    fig, axes = plt.subplots(1, len(metrics), figsize=(4 * len(metrics), 4.5))
+    fig, axes = plt.subplots(1, len(metrics), figsize=(4 * len(metrics), 5.5))
     for ax, met, lab in zip(axes, metrics, labels):
         vals = [results[n][met] for n in names]
         bars = ax.bar(names, vals, color=colors)
@@ -195,10 +231,11 @@ def _plot(results, ablation=False):
         ax.set_title(lab, fontsize=11)
         ax.set_ylim(0, max(vals) * 1.2)
         ax.grid(axis='y', alpha=0.3)
-        ax.tick_params(axis='x', labelsize=9)
+        ax.set_xticklabels(names, rotation=45, ha='right', fontsize=10)
+        ax.tick_params(axis='x', labelsize=10)
 
-    title = 'CERISE — Ablação PPO(YOLO) vs PPO(odom) vs Baseline' if ablation \
-        else 'CERISE — PPO vs nearest_free (env leve, 1000 episódios)'
+    title = 'CERISE — PPO(YOLO) vs PPO(odom) vs Baseline Ablation' if ablation \
+        else 'CERISE — PPO vs nearest_free (light env, 1000 episodes)'
     fig.suptitle(title, fontsize=13, fontweight='bold')
     fig.tight_layout()
 
@@ -218,19 +255,21 @@ def _plot_latency_dist(results, ablation=False):
     import matplotlib.pyplot as plt
 
     names = list(results.keys())
-    colors = ['#888888', '#7B2D8B', '#2D7B8B', '#C2783F', '#3FA34D'][:len(names)]
+    _palette = ['#AAAAAA', '#E57373', '#FF8C00', '#888888', '#7B2D8B',
+                '#2D7B8B', '#C2783F', '#3FA34D']
+    colors = (_palette * 2)[:len(names)]
     data = [results[n]['_responses'] for n in names]
 
-    fig, ax = plt.subplots(figsize=(7, 5))
+    fig, ax = plt.subplots(figsize=(9, 5))
     bp = ax.boxplot(data, patch_artist=True, notch=False,
                     medianprops=dict(color='white', linewidth=2))
     for patch, color in zip(bp['boxes'], colors):
         patch.set_facecolor(color)
         patch.set_alpha(0.8)
 
-    ax.set_xticklabels(names, fontsize=10)
-    ax.set_ylabel('Response time por tarefa (s)', fontsize=11)
-    ax.set_title('CERISE — Distribuição de Response Time por Política', fontsize=12, fontweight='bold')
+    ax.set_xticklabels(names, rotation=45, ha='right', fontsize=10)
+    ax.set_ylabel('Response time per task (s)', fontsize=11)
+    ax.set_title('CERISE — Response Time Distribution by Policy', fontsize=12, fontweight='bold')
     ax.grid(axis='y', alpha=0.3)
 
     fname = 'rl_latency_boxplot_ablation.png' if ablation else 'rl_latency_boxplot.png'

@@ -22,6 +22,9 @@ from stable_baselines3 import PPO                                       # noqa: 
 from stable_baselines3.common.env_util import make_vec_env              # noqa: E402
 from stable_baselines3.common.callbacks import (                        # noqa: E402
     EvalCallback, StopTrainingOnRewardThreshold, CallbackList)
+from sb3_contrib import MaskablePPO                                     # noqa: E402
+from sb3_contrib.common.wrappers import ActionMasker                    # noqa: E402
+from sb3_contrib.common.maskable.callbacks import MaskableEvalCallback  # noqa: E402
 
 from cerise_nav.rl.allocation_env import AllocationEnv, WAYPOINT_SETS  # noqa: E402
 from cerise_nav.rl.nav_model import calibrate_from_csv                  # noqa: E402
@@ -67,6 +70,8 @@ def main():
     p.add_argument('--eval-freq', type=int, default=10_000,
                    help='Frequência de avaliação do EvalCallback (steps).')
     p.add_argument('--eval-episodes', type=int, default=50)
+    p.add_argument('--masked', action='store_true',
+                   help='Treina com action masking (MaskablePPO) em vez de PPO simples.')
     args = p.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
@@ -77,41 +82,56 @@ def main():
           f'noise_std={nav.noise_std:.3f}')
 
     env_kwargs = build_env_kwargs(args, nav)
+
+    # Action masking (sb3-contrib): envolve cada env em ActionMasker, que expõe
+    # o método action_masks() do AllocationEnv ao MaskablePPO. Torna a restrição
+    # "não escolher robô ocupado" estrutural, em vez de apenas penalizada.
+    # make_vec_env aplica Monitor ANTES deste wrapper, e o Monitor desta versão
+    # do gymnasium não repassa getattr para o env interno — por isso usamos
+    # action_mask_fn como callable com .unwrapped em vez do nome do método.
+    wrapper_class = (
+        lambda e: ActionMasker(e, lambda inner: inner.unwrapped.action_masks())
+    ) if args.masked else None
+
     vec_env = make_vec_env(AllocationEnv, n_envs=args.n_envs,
-                           seed=args.seed, env_kwargs=env_kwargs)
+                           seed=args.seed, env_kwargs=env_kwargs,
+                           wrapper_class=wrapper_class)
 
     # TensorBoard é opcional: se não estiver instalado, treina sem ele.
     tb_log = args.tensorboard if _tensorboard_available() else None
     if tb_log is None:
         print('[train] tensorboard indisponível — logando só no stdout.')
 
-    model = PPO('MlpPolicy', vec_env, verbose=1, seed=args.seed,
-                tensorboard_log=tb_log)
+    ppo_cls = MaskablePPO if args.masked else PPO
+    model = ppo_cls('MlpPolicy', vec_env, verbose=1, seed=args.seed,
+                    tensorboard_log=tb_log)
 
-    run_name = f'ppo_allocator_{args.obs_source}'
+    run_name = f'ppo_allocator_{args.obs_source}' + ('_masked' if args.masked else '')
     best_dir = os.path.join(args.out_dir, f'{run_name}_best')
 
     # EvalCallback: avalia periodicamente e salva o MELHOR checkpoint.
     # Sem isso, salvamos o modelo do último step, que pode ter overfitado.
     eval_env = make_vec_env(AllocationEnv, n_envs=1,
-                            seed=args.seed + 1000, env_kwargs=env_kwargs)
+                            seed=args.seed + 1000, env_kwargs=env_kwargs,
+                            wrapper_class=wrapper_class)
+    eval_cb_cls = MaskableEvalCallback if args.masked else EvalCallback
     callbacks = []
     if args.reward_threshold is not None:
         stop_cb = StopTrainingOnRewardThreshold(
             reward_threshold=args.reward_threshold, verbose=1)
-        eval_cb = EvalCallback(
+        eval_cb = eval_cb_cls(
             eval_env, best_model_save_path=best_dir,
             eval_freq=args.eval_freq, n_eval_episodes=args.eval_episodes,
             callback_on_new_best=stop_cb, verbose=1)
     else:
-        eval_cb = EvalCallback(
+        eval_cb = eval_cb_cls(
             eval_env, best_model_save_path=best_dir,
             eval_freq=args.eval_freq, n_eval_episodes=args.eval_episodes,
             verbose=1)
     callbacks.append(eval_cb)
 
     print(f'[train] {run_name}: {args.timesteps} timesteps, '
-          f'{args.num_robots} robôs, obs={args.obs_source}')
+          f'{args.num_robots} robôs, obs={args.obs_source}, masked={args.masked}')
     model.learn(total_timesteps=args.timesteps, tb_log_name=run_name,
                 callback=CallbackList(callbacks))
 

@@ -7,6 +7,7 @@ numpy
 
 # Aprendizado por reforço (alocação de tarefas)
 stable-baselines3>=2.8
+sb3-contrib>=2.8 # MaskablePPO / ActionMasker (action masking)
 gymnasium>=1.2
 scipy            # linear_sum_assignment (associação detecção<->robô)
 tensorboard      # curvas de treino do PPO

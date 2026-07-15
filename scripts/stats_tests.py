@@ -119,6 +119,8 @@ def main():
                    help='Compara PPO(yolo) vs PPO(odom) vs baseline vs oráculo.')
     p.add_argument('--model-yolo', default=os.path.join(_REPO, 'models', 'ppo_allocator_yolo.zip'))
     p.add_argument('--model-odom', default=os.path.join(_REPO, 'models', 'ppo_allocator_odom.zip'))
+    p.add_argument('--model-yolo-masked', default=os.path.join(_REPO, 'models', 'ppo_allocator_yolo_masked.zip'))
+    p.add_argument('--model-odom-masked', default=os.path.join(_REPO, 'models', 'ppo_allocator_odom_masked.zip'))
     p.add_argument('--num-robots', type=int, default=3)
     p.add_argument('--waypoints', choices=['default', 'expanded'], default='default')
     p.add_argument('--episode-len', type=int, default=20)
@@ -161,15 +163,23 @@ def main():
 
     if args.ablation:
         from stable_baselines3 import PPO
-        for label, path, src in [
-            ('PPO(yolo)', args.model_yolo, 'yolo'),
-            ('PPO(odom)', args.model_odom, 'odom'),
+        from sb3_contrib import MaskablePPO
+        for label, path, src, masked in [
+            ('PPO(yolo)', args.model_yolo, 'yolo', False),
+            ('PPO(odom)', args.model_odom, 'odom', False),
+            ('PPO(yolo,masked)', args.model_yolo_masked, 'yolo', True),
+            ('PPO(odom,masked)', args.model_odom_masked, 'odom', True),
         ]:
             if not os.path.exists(path):
                 print(f'[aviso] {path} não encontrado — pulando {label}.')
                 continue
-            m = PPO.load(path)
-            fn = lambda obs, env, m=m: int(m.predict(obs, deterministic=True)[0])
+            if masked:
+                m = MaskablePPO.load(path)
+                fn = lambda obs, env, m=m: int(m.predict(
+                    obs, action_masks=env.action_masks(), deterministic=True)[0])
+            else:
+                m = PPO.load(path)
+                fn = lambda obs, env, m=m: int(m.predict(obs, deterministic=True)[0])
             print(f'Coletando {label}...')
             costs = collect_episode_costs(fn, args.inter_arrival, nav, args, src, args.episodes)
             policies[label] = (costs, src)

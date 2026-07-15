@@ -66,9 +66,9 @@ POS_DRIFT_ODOM = 0.03    # drift por tarefa (cresce sem limite ao longo do ep.)
 class AllocationEnv(gym.Env):
     """Ambiente de alocação sequencial de tarefas.
 
-    Observation: Box(3*N + 2) via obs_encoding.
+    Observation: Box(3*N + 4 + 4*LOOKAHEAD) via obs_encoding (posições, busy, demanda atual, lookahead).
     Action: Discrete(N) — qual robô executa a demanda corrente.
-    Reward: -(travel_time / t_ref) [- penalidade ação inválida] [+ balanceamento].
+    Reward: -((wait_time + travel_time) / t_ref) [- penalidade ação inválida] [+ balanceamento].
     """
 
     metadata = {'render_modes': []}
@@ -205,6 +205,15 @@ class AllocationEnv(gym.Env):
         # Próxima observação (ou a última repetida se terminou).
         obs = self._build_obs() if not terminated else self._build_obs(last=True)
         return obs, float(reward), terminated, truncated, info
+
+    def action_masks(self):
+        """Máscara de ações válidas (True = robô livre, pode ser escolhido).
+
+        Mesmo limiar estrito (`> 0.0`) usado no check de `invalid` em `step()`,
+        para que a máscara seja semanticamente idêntica à restrição hoje imposta
+        via penalidade suave. Consumida por sb3-contrib's MaskablePPO/ActionMasker.
+        """
+        return [b <= 0.0 for b in self._busy]
 
     # -------------------------------------------------------------- helpers
     def _build_obs(self, last=False):
