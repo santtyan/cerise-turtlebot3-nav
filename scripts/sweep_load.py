@@ -131,16 +131,20 @@ def _plot(load_pts, results, policies):
     import matplotlib.pyplot as plt
 
     colors = {
+        'random':       '#AAAAAA',
+        'round_robin':  '#E57373',
         'nearest_free': '#888888',
-        'oracle': '#3FA34D',
-        'PPO(yolo)': '#7B2D8B',
-        'PPO(odom)': '#2D7B8B',
+        'oracle':       '#3FA34D',
+        'PPO(yolo)':    '#7B2D8B',
+        'PPO(odom)':    '#2D7B8B',
     }
     styles = {
+        'random':       ':D',
+        'round_robin':  '--x',
         'nearest_free': '-o',
-        'oracle': '-s',
-        'PPO(yolo)': '-^',
-        'PPO(odom)': '-v',
+        'oracle':       '-s',
+        'PPO(yolo)':    '-^',
+        'PPO(odom)':    '-v',
     }
 
     fig, ax = plt.subplots(figsize=(8, 5))
@@ -151,9 +155,10 @@ def _plot(load_pts, results, policies):
                 color=colors.get(name, '#444444'),
                 label=name, linewidth=2, markersize=7)
 
-    ax.set_xlabel('Inter-arrival (s)  [←  alta carga   |   baixa carga  →]', fontsize=12)
-    ax.set_ylabel('Custo médio (∑ response_time por ep, s)', fontsize=12)
-    ax.set_title('CERISE — Crossover PPO vs nearest_free por carga', fontsize=13, fontweight='bold')
+    ax.set_xlabel('Inter-arrival (s)  [←  high load   |   low load  →]', fontsize=12)
+    ax.set_ylabel('Mean cost (∑ response_time per ep, s)', fontsize=12)
+    ax.set_title('CERISE — Response Cost vs Load (nearest_free ≈ optimal)',
+                 fontsize=13, fontweight='bold')
     ax.legend(fontsize=11)
     ax.grid(alpha=0.3)
     ax.invert_xaxis()

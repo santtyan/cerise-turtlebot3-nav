@@ -45,7 +45,7 @@ def analyze(n_episodes=2000, max_examples=5):
 
             if a_ppo != a_nf:
                 # Posições e busy antes do step
-                positions, busy_norm, origin = obs_encoding.decode_obs(
+                positions, busy_norm, origin, _dest, _future = obs_encoding.decode_obs(
                     obs, env.num_robots)
                 busy_s = [b * obs_encoding.BUSY_REF for b in busy_norm]
 

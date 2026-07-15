@@ -111,9 +111,9 @@ def main():
     ax.axhline(bl_r, color='#888888', linewidth=1.5, linestyle='--',
                label=f'nearest_free ({bl_r:.1f})')
 
-    ax.set_xlabel('Timesteps de treino', fontsize=12)
-    ax.set_ylabel('Reward médio por episódio', fontsize=12)
-    ax.set_title('CERISE — Curva de Aprendizado PPO(YOLO) vs PPO(odom)',
+    ax.set_xlabel('Training timesteps', fontsize=12)
+    ax.set_ylabel('Mean episodic reward', fontsize=12)
+    ax.set_title('CERISE — PPO(YOLO) vs PPO(odom) Learning Curve',
                  fontsize=13, fontweight='bold')
     ax.legend(fontsize=11)
     ax.grid(alpha=0.3)
