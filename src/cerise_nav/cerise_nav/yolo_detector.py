@@ -162,11 +162,14 @@ class YoloDetector(Node):
         msg = PoseArray()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.header.frame_id = 'map'
-        for wx, wy, _ in detections:
+        for wx, wy, conf in detections:
             p = Pose()
             p.position.x = wx
             p.position.y = wy
-            p.position.z = 0.0
+            # position.z carrega box.conf[0] (0..1) — reaproveitado por
+            # ekf_fusion_node.py como R adaptativo; PoseArray não tem campo
+            # de confiança nativo e position.z do robô é sempre 0 (planar).
+            p.position.z = conf
             msg.poses.append(p)
         self.pub_poses.publish(msg)
 

@@ -20,6 +20,7 @@ setup(
             'task_allocator = cerise_nav.task_allocator:main',
             'dataset_collector = cerise_nav.dataset_collector:main',
             'yolo_detector = cerise_nav.yolo_detector:main',
+            'ekf_fusion_node = cerise_nav.ekf_fusion_node:main',
             'benchmark_detector = cerise_nav.benchmark_detector:main',
             'rl_task_allocator = cerise_nav.rl_task_allocator:main',
             'video_recorder = cerise_nav.video_recorder:main',
