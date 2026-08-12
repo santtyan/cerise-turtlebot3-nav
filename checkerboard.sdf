@@ -1,0 +1,208 @@
+<sdf version="1.6">
+  <model name="calibration_checkerboard">
+    <static>true</static>
+    <pose>0 0 0.002 0 0 0</pose>
+    <link name="board_link">
+      <visual name="sq_0_0">
+        <pose>-0.7200 -0.2800 0 0 0 0</pose>
+        <geometry><box><size>0.1 0.1 0.001</size></box></geometry>
+        <material>
+          <ambient>0 0 0 1</ambient>
+          <diffuse>0 0 0 1</diffuse>
+          <specular>0 0 0 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+      <visual name="sq_0_1">
+        <pose>-0.6200 -0.2800 0 0 0 0</pose>
+        <geometry><box><size>0.1 0.1 0.001</size></box></geometry>
+        <material>
+          <ambient>1 1 1 1</ambient>
+          <diffuse>1 1 1 1</diffuse>
+          <specular>0 0 0 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+      <visual name="sq_0_2">
+        <pose>-0.5200 -0.2800 0 0 0 0</pose>
+        <geometry><box><size>0.1 0.1 0.001</size></box></geometry>
+        <material>
+          <ambient>0 0 0 1</ambient>
+          <diffuse>0 0 0 1</diffuse>
+          <specular>0 0 0 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+      <visual name="sq_0_3">
+        <pose>-0.4200 -0.2800 0 0 0 0</pose>
+        <geometry><box><size>0.1 0.1 0.001</size></box></geometry>
+        <material>
+          <ambient>1 1 1 1</ambient>
+          <diffuse>1 1 1 1</diffuse>
+          <specular>0 0 0 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+      <visual name="sq_0_4">
+        <pose>-0.3200 -0.2800 0 0 0 0</pose>
+        <geometry><box><size>0.1 0.1 0.001</size></box></geometry>
+        <material>
+          <ambient>0 0 0 1</ambient>
+          <diffuse>0 0 0 1</diffuse>
+          <specular>0 0 0 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+      <visual name="sq_1_0">
+        <pose>-0.7200 -0.1800 0 0 0 0</pose>
+        <geometry><box><size>0.1 0.1 0.001</size></box></geometry>
+        <material>
+          <ambient>1 1 1 1</ambient>
+          <diffuse>1 1 1 1</diffuse>
+          <specular>0 0 0 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+      <visual name="sq_1_1">
+        <pose>-0.6200 -0.1800 0 0 0 0</pose>
+        <geometry><box><size>0.1 0.1 0.001</size></box></geometry>
+        <material>
+          <ambient>0 0 0 1</ambient>
+          <diffuse>0 0 0 1</diffuse>
+          <specular>0 0 0 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+      <visual name="sq_1_2">
+        <pose>-0.5200 -0.1800 0 0 0 0</pose>
+        <geometry><box><size>0.1 0.1 0.001</size></box></geometry>
+        <material>
+          <ambient>1 1 1 1</ambient>
+          <diffuse>1 1 1 1</diffuse>
+          <specular>0 0 0 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+      <visual name="sq_1_3">
+        <pose>-0.4200 -0.1800 0 0 0 0</pose>
+        <geometry><box><size>0.1 0.1 0.001</size></box></geometry>
+        <material>
+          <ambient>0 0 0 1</ambient>
+          <diffuse>0 0 0 1</diffuse>
+          <specular>0 0 0 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+      <visual name="sq_1_4">
+        <pose>-0.3200 -0.1800 0 0 0 0</pose>
+        <geometry><box><size>0.1 0.1 0.001</size></box></geometry>
+        <material>
+          <ambient>1 1 1 1</ambient>
+          <diffuse>1 1 1 1</diffuse>
+          <specular>0 0 0 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+      <visual name="sq_2_0">
+        <pose>-0.7200 -0.0800 0 0 0 0</pose>
+        <geometry><box><size>0.1 0.1 0.001</size></box></geometry>
+        <material>
+          <ambient>0 0 0 1</ambient>
+          <diffuse>0 0 0 1</diffuse>
+          <specular>0 0 0 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+      <visual name="sq_2_1">
+        <pose>-0.6200 -0.0800 0 0 0 0</pose>
+        <geometry><box><size>0.1 0.1 0.001</size></box></geometry>
+        <material>
+          <ambient>1 1 1 1</ambient>
+          <diffuse>1 1 1 1</diffuse>
+          <specular>0 0 0 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+      <visual name="sq_2_2">
+        <pose>-0.5200 -0.0800 0 0 0 0</pose>
+        <geometry><box><size>0.1 0.1 0.001</size></box></geometry>
+        <material>
+          <ambient>0 0 0 1</ambient>
+          <diffuse>0 0 0 1</diffuse>
+          <specular>0 0 0 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+      <visual name="sq_2_3">
+        <pose>-0.4200 -0.0800 0 0 0 0</pose>
+        <geometry><box><size>0.1 0.1 0.001</size></box></geometry>
+        <material>
+          <ambient>1 1 1 1</ambient>
+          <diffuse>1 1 1 1</diffuse>
+          <specular>0 0 0 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+      <visual name="sq_2_4">
+        <pose>-0.3200 -0.0800 0 0 0 0</pose>
+        <geometry><box><size>0.1 0.1 0.001</size></box></geometry>
+        <material>
+          <ambient>0 0 0 1</ambient>
+          <diffuse>0 0 0 1</diffuse>
+          <specular>0 0 0 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+      <visual name="sq_3_0">
+        <pose>-0.7200 0.0200 0 0 0 0</pose>
+        <geometry><box><size>0.1 0.1 0.001</size></box></geometry>
+        <material>
+          <ambient>1 1 1 1</ambient>
+          <diffuse>1 1 1 1</diffuse>
+          <specular>0 0 0 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+      <visual name="sq_3_1">
+        <pose>-0.6200 0.0200 0 0 0 0</pose>
+        <geometry><box><size>0.1 0.1 0.001</size></box></geometry>
+        <material>
+          <ambient>0 0 0 1</ambient>
+          <diffuse>0 0 0 1</diffuse>
+          <specular>0 0 0 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+      <visual name="sq_3_2">
+        <pose>-0.5200 0.0200 0 0 0 0</pose>
+        <geometry><box><size>0.1 0.1 0.001</size></box></geometry>
+        <material>
+          <ambient>1 1 1 1</ambient>
+          <diffuse>1 1 1 1</diffuse>
+          <specular>0 0 0 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+      <visual name="sq_3_3">
+        <pose>-0.4200 0.0200 0 0 0 0</pose>
+        <geometry><box><size>0.1 0.1 0.001</size></box></geometry>
+        <material>
+          <ambient>0 0 0 1</ambient>
+          <diffuse>0 0 0 1</diffuse>
+          <specular>0 0 0 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+      <visual name="sq_3_4">
+        <pose>-0.3200 0.0200 0 0 0 0</pose>
+        <geometry><box><size>0.1 0.1 0.001</size></box></geometry>
+        <material>
+          <ambient>1 1 1 1</ambient>
+          <diffuse>1 1 1 1</diffuse>
+          <specular>0 0 0 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>
