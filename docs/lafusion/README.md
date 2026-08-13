@@ -5,7 +5,7 @@ Visual Detection and Odometry for Multi-Robot Position Estimation: A Case
 Study on the CERISE Digital Twin" (título de trabalho), organizado para
 consulta e submissão.
 
-**Git SHA de referência**: `6e71e56` (branch `feature/rl-task-allocator`)
+**Git SHA de referência**: ver `git log -1` no momento da submissão (branch `feature/rl-task-allocator`)
 
 > Os arquivos aqui são **cópias** dos originais no repositório — mantidos
 > para consulta/empacotamento do paper. Os arquivos-fonte "vivos" (editáveis,
@@ -25,13 +25,36 @@ docs/lafusion/
 ```
 
 ### figures/
+
+**Resultados / dados (matplotlib, estilo IEEE — fonte serifada, paleta
+Okabe-Ito colorblind-safe, DPI 400, ver `STYLE_NOTES` abaixo):**
 - `lafusion_trajectory.png` — trajetória EKF vs. odometria (com drift) vs.
   ground truth, cenário `cenario1_parado` (ganho de +46.3%, o mais
-  representativo do resultado agregado).
-- `lafusion_error_over_time.png` — erro de posição ao longo do tempo, 3
-  cenários lado a lado.
+  representativo do resultado agregado). Scatter de dispersão, não linha.
+- `lafusion_error_over_time.png` — erro de posição ao longo do tempo
+  (suavizado), 3 cenários lado a lado, ylim compartilhado.
+- `lafusion_nees_nis.png` — séries de NEES/NIS da validação sintética
+  (etapa 1.5) com banda de confiança de 95% e valor esperado marcados.
 - `lafusion_architecture.png` — diagrama do pipeline (câmera→calibração→
   YOLO→associação→EKF→pose fundida).
+
+**Capturas reais do sistema rodando (não esquemas — screenshots do
+Gazebo/ROS2 em produção, 13/08/2026):**
+- `lafusion_pipeline_camera_raw.jpg` — frame bruto da câmera overhead
+  (3 robôs visíveis, `/camera/image_raw`).
+- `lafusion_pipeline_yolo_detection.jpg` — mesmo frame com detecção YOLO
+  desenhada (bounding boxes + confiança real: 0.90/0.92/0.89,
+  `/detection_image`).
+- `lafusion_pipeline_calibration_board.jpg` — tabuleiro de calibração real
+  spawnado no Gazebo durante o passo 2.5, visto pela câmera overhead.
+- `lafusion_validation_terminal.png` — captura estilizada (fundo terminal)
+  da execução real de `validate_ekf_synthetic.py`, com o output completo
+  (NEES/NIS, "filtro PRATICAMENTE consistente").
+
+*(Tentativa de capturar `gzclient`, a GUI 3D do Gazebo, não teve sucesso —
+ambiente sem renderização gráfica real/headless, tela preta. A câmera
+overhead acima é a fonte de imagem real usada pelo pipeline, então cobre
+o que importa cientificamente.)*
 
 ### scripts/
 - `validate_ekf_synthetic.py` — etapa 1.5: validação sintética NEES/NIS.
@@ -39,8 +62,9 @@ docs/lafusion/
   sanidade (fx vs. valor teórico).
 - `eval_ekf_vs_baseline.py` — passo 4: EKF vs. odom-only vs. ground truth
   nos 3 bags reais (resultado principal do paper).
-- `plot_ekf_results.py` / `plot_architecture_diagram.py` — geração das
-  figuras acima.
+- `plot_ekf_results.py` / `plot_architecture_diagram.py` / `plot_nees_nis.py`
+  — geração das figuras de resultado/diagrama.
+- `render_terminal_screenshot.py` — gera a captura estilizada da validação.
 
 ### code/
 - `ekf_fusion_node.py` — nó ROS2 de produção (EKF por robô, gating por

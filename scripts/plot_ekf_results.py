@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-"""Gera figuras para o paper LAFusion a partir dos resultados do passo 4
-(scripts/eval_ekf_vs_baseline.py): trajetória EKF vs. odom-only vs. ground
-truth, e erro ao longo do tempo nas 3 condições de drift.
+"""Gera figuras para o paper LAFusion, seguindo convenções de publicação
+IEEE/Springer (ver docs/lafusion/figures/STYLE_NOTES.md para a
+justificativa de cada escolha): fonte serifada compatível com o corpo do
+artigo, sem título embutido na imagem (o título vive no \\caption do LaTeX),
+ticks para dentro, spines superior/direita removidas, paleta colorblind-safe,
+linhas finas com marcadores esparsos em vez de curvas densas ilegíveis.
 
 Uso: python3 scripts/plot_ekf_results.py
 Saída: docs/lafusion_trajectory.png, docs/lafusion_error_over_time.png
@@ -24,6 +27,45 @@ from eval_ekf_vs_baseline import (POS_DRIFT_ODOM, RobotEKF,  # noqa: E402
 
 ROBOT_TO_PLOT = 'robot1'
 OUT_DIR = os.path.join(_REPO, 'docs')
+
+# --- Estilo IEEE/publicação (aplicado globalmente) -------------------------
+# Largura de coluna IEEE dupla-coluna = 3.5in; figura de largura completa
+# (spanning) = 7.16in. Fonte-base 8-9pt para bater com o corpo do texto em
+# 10pt após redução no LaTeX. Paleta: Tableau colorblind-safe (Okabe-Ito
+# subset), não as cores 'r'/'b'/'k' cruas do matplotlib.
+COLOR_GT = '#000000'       # ground truth: preto sólido, é a referência
+COLOR_EKF = '#0072B2'      # azul (Okabe-Ito) — série principal do paper
+COLOR_ODOM = '#D55E00'     # laranja-avermelhado (Okabe-Ito) — baseline
+COLOR_START = '#009E73'    # verde (Okabe-Ito) — marcador de início
+
+plt.rcParams.update({
+    'font.family': 'serif',
+    'font.serif': ['Times New Roman', 'DejaVu Serif', 'Nimbus Roman'],
+    'font.size': 9,
+    'axes.titlesize': 9,
+    'axes.labelsize': 9,
+    'xtick.labelsize': 8,
+    'ytick.labelsize': 8,
+    'legend.fontsize': 7.5,
+    'axes.linewidth': 0.7,
+    'xtick.direction': 'in',
+    'ytick.direction': 'in',
+    'xtick.major.width': 0.7,
+    'ytick.major.width': 0.7,
+    'xtick.major.size': 3,
+    'ytick.major.size': 3,
+    'axes.spines.top': False,
+    'axes.spines.right': False,
+    'axes.grid': True,
+    'grid.linewidth': 0.4,
+    'grid.color': '#cccccc',
+    'grid.alpha': 0.6,
+    'legend.frameon': False,
+    'legend.handlelength': 1.6,
+    'lines.linewidth': 1.0,
+    'savefig.dpi': 400,
+    'figure.dpi': 150,
+})
 
 
 def run_scenario_with_trajectory(bag_path, inject_drift, rng, drift_rate_divisor=20.0):
@@ -88,53 +130,93 @@ def run_scenario_with_trajectory(bag_path, inject_drift, rng, drift_rate_divisor
             np.array(err_ekf_series), np.array(err_odom_series), np.array(err_t))
 
 
-def plot_trajectory(bag_path, scenario_label, out_path):
+def plot_trajectory(bag_path, out_path):
     rng = np.random.default_rng(42)
     traj_ekf, traj_odom, traj_gt, _, _, _ = run_scenario_with_trajectory(
         bag_path, inject_drift=True, rng=rng, drift_rate_divisor=20.0)
 
-    fig, ax = plt.subplots(figsize=(6, 5))
-    ax.plot(traj_gt[:, 0], traj_gt[:, 1], 'k-', linewidth=2, label='Ground truth', zorder=3)
-    ax.plot(traj_odom[:, 0], traj_odom[:, 1], 'r--', linewidth=1, alpha=0.7,
-            label='Odometry only (drifted)', zorder=1)
-    ax.plot(traj_ekf[:, 0], traj_ekf[:, 1], 'b-', linewidth=1.5, alpha=0.9,
-            label='EKF (camera+odometry fusion)', zorder=2)
-    ax.scatter([traj_gt[0, 0]], [traj_gt[0, 1]], c='green', s=80, marker='o',
-               label='Start', zorder=4)
+    fig, ax = plt.subplots(figsize=(3.5, 3.1))
+
+    # Ground truth como ponto único (robô parado neste cenário) — desenhado
+    # como um alvo grande, não uma "linha" de um pixel de comprimento.
+    ax.scatter(traj_gt[:, 0], traj_gt[:, 1], s=90, marker='+', c=COLOR_GT,
+               linewidths=1.4, label='Ground truth', zorder=4)
+
+    # Odometry-only: nuvem de pontos esparsos (não uma linha densa — o
+    # "espaguete" ilegível da v1 vinha de conectar 456 amostras com linha
+    # cheia). Pontos pequenos e semitransparentes leem como "dispersão do
+    # ruído", que é o que de fato é.
+    ax.scatter(traj_odom[:, 0], traj_odom[:, 1], s=5, c=COLOR_ODOM, alpha=0.35,
+               linewidths=0, label='Odometry only (drift)', zorder=1)
+
+    # EKF: mesma lógica, mas o argumento visual do paper é que a nuvem azul
+    # é mais compacta ao redor do ground truth que a laranja.
+    ax.scatter(traj_ekf[:, 0], traj_ekf[:, 1], s=5, c=COLOR_EKF, alpha=0.5,
+               linewidths=0, label='EKF (fusion)', zorder=2)
 
     ax.set_xlabel('x (m)')
     ax.set_ylabel('y (m)')
-    ax.set_title(f'Robot trajectory: EKF vs. odometry-only vs. ground truth\n({scenario_label}, aggressive drift injected)')
-    ax.legend(loc='best', fontsize=9)
     ax.set_aspect('equal')
-    ax.grid(True, alpha=0.3)
+    # Legenda abaixo do eixo, fora da área de dados — evita colidir com os
+    # pontos (o "upper right" da primeira tentativa cobria a nuvem de dados).
+    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.16), ncol=1,
+              markerscale=1.5, handletextpad=0.6, labelspacing=0.4,
+              fontsize=7)
 
-    plt.savefig(out_path, dpi=150, bbox_inches='tight')
+    fig.tight_layout(pad=0.3)
+    plt.savefig(out_path, bbox_inches='tight')
     plt.close(fig)
     print(f'Salvo: {out_path}')
 
 
 def plot_error_over_time(bags_dir, out_path):
     scenarios = ['cenario1_parado', 'cenario2_reto', 'cenario3_curva']
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4), sharey=True)
+    titles = ['(a) Stationary', '(b) Straight motion', '(c) Curve / occlusion']
 
-    for ax, scenario in zip(axes, scenarios):
+    fig, axes = plt.subplots(1, 3, figsize=(7.16, 2.5), sharey=True)
+
+    def smooth(x, w=9):
+        if len(x) < w:
+            return x
+        kernel = np.ones(w) / w
+        return np.convolve(x, kernel, mode='valid')
+
+    # Primeira passada: coleta os dados de todos os painéis para calcular um
+    # ylim compartilhado com margem — sharey=True sozinho não evita corte no
+    # topo quando o maior valor de um painel bate exatamente no limite.
+    all_data = []
+    for scenario in scenarios:
         rng = np.random.default_rng(42)
         bag_path = os.path.join(bags_dir, scenario)
         _, _, _, err_ekf, err_odom, err_t = run_scenario_with_trajectory(
             bag_path, inject_drift=True, rng=rng, drift_rate_divisor=20.0)
+        all_data.append((err_t, err_ekf, err_odom))
 
-        ax.plot(err_t, err_odom, 'r--', linewidth=1, alpha=0.7, label='Odometry only')
-        ax.plot(err_t, err_ekf, 'b-', linewidth=1.5, label='EKF (fusion)')
+    y_max = max(max(smooth(e).max(), smooth(o).max()) for _, e, o in all_data)
+
+    for ax, (err_t, err_ekf, err_odom), title in zip(axes, all_data, titles):
+        t_s = err_t[:len(smooth(err_t))]
+        ax.plot(t_s, smooth(err_odom), color=COLOR_ODOM, linewidth=1.1,
+                label='Odometry only')
+        ax.plot(t_s, smooth(err_ekf), color=COLOR_EKF, linewidth=1.1,
+                label='EKF (fusion)')
         ax.set_xlabel('Time (s)')
-        ax.set_title(scenario.replace('cenario', 'Scenario ').replace('_', ': '))
-        ax.grid(True, alpha=0.3)
+        ax.set_title(title, fontsize=8.5, loc='left')
+        ax.set_ylim(0, y_max * 1.12)
 
-    axes[0].set_ylabel('Position error vs. ground truth (m)')
-    axes[0].legend(loc='best', fontsize=9)
-    fig.suptitle('Position error over time: EKF vs. odometry-only (aggressive drift injected)')
+    axes[0].set_ylabel('Position error (m)')
+    # Legenda única acima de toda a figura (não dentro de um painel, onde
+    # colidia com a curva no canto superior esquerdo do painel (a)). Reserva
+    # espaço explícito no topo via subplots_adjust antes de desenhar a
+    # legenda, e usa bbox_extra_artists no savefig para garantir que ela não
+    # seja cortada pelo bbox_inches='tight' (a v1 desta correção cortava a
+    # legenda porque tight_layout não sabe da fig.legend desenhada depois).
+    fig.subplots_adjust(top=0.80)
+    handles, labels = axes[0].get_legend_handles_labels()
+    leg = fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 1.0),
+                      ncol=2, frameon=False)
 
-    plt.savefig(out_path, dpi=150, bbox_inches='tight')
+    plt.savefig(out_path, bbox_extra_artists=(leg,), bbox_inches='tight')
     plt.close(fig)
     print(f'Salvo: {out_path}')
 
@@ -145,12 +227,9 @@ def main():
 
     # cenario1_parado escolhido por ter o ganho mais forte e representativo
     # do resultado agregado (+46.3% neste cenário isolado vs. +23.7% médio
-    # dos 3 — ver eval_ekf_vs_baseline.py). cenario3_curva tem ganho fraco
-    # (+2.4%, robô se move mais e YOLO perde detecção com mais frequência) e
-    # produziria uma figura de trajetória visualmente enganosa/ruidosa.
+    # dos 3 — ver eval_ekf_vs_baseline.py).
     plot_trajectory(
         os.path.join(bags_dir, 'cenario1_parado'),
-        'cenario1_parado',
         os.path.join(OUT_DIR, 'lafusion_trajectory.png'))
 
     plot_error_over_time(bags_dir, os.path.join(OUT_DIR, 'lafusion_error_over_time.png'))
