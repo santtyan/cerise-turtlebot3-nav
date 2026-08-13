@@ -1,0 +1,76 @@
+# Parâmetros do EKF de fusão YOLO+odometria (ekf_fusion_node.py)
+# Calibrados/validados na sessão de 12/08/2026 — ver README.md deste pacote
+# e /home/yan/.claude/plans/hierarquize-por-roi-o-peaceful-sun.md (histórico completo)
+
+ekf_fusion_node:
+  # Estado por robô: [px, py, theta]
+  # Q recalibrado empiricamente contra bags reais (passo 4) — o valor original
+  # calibrado sinteticamente (1e-6) era 3-6 ordens de magnitude pequeno demais
+  # para o drift real de odometria testado.
+  Q_diag: [0.5, 0.5, 0.25]         # ruído do processo (predição), por segundo (dt=0.1s de referência)
+  R_min: 0.02                       # ruído mínimo de medição (YOLO), metros — alta confiança
+  R_max: 0.20                       # ruído máximo de medição (YOLO), metros — baixa confiança
+
+  # Teto de covariância — impede que a incerteza do filtro exploda sem
+  # correção prolongada (ex. oclusão do YOLO), o que quebraria o gating de
+  # Mahalanobis e causaria associação incorreta entre robôs.
+  cov_cap: 0.05                     # metros², rad²
+
+  # Gating de associação (association.py:mahalanobis_gate)
+  mahalanobis_gate_threshold: 9.21  # qui-quadrado, 2 graus de liberdade, 99% confiança
+
+# Câmera overhead (world_with_camera.world)
+camera:
+  height_m: 3.0
+  horizontal_fov_rad: 1.047         # 60 graus
+  image_width: 640
+  image_height: 480
+  # Calibração real (cv2.calibrateCamera, scripts/calibrate_camera.py):
+  # ver camera_calibration.npz deste pacote (mtx, dist, rms_error,
+  # mean_reprojection_error=0.162px, fx_sanity_ratio=1.33)
+
+# Validação sintética do EKF (scripts/validate_ekf_synthetic.py)
+synthetic_validation:
+  method: "NEES/NIS Monte Carlo (Bar-Shalom; Chen et al. 2023, arXiv 2306.07225)"
+  n_seeds: 30
+  steps_per_seed: 2000
+  nees_relative_error_pct: 1.5
+  nis_relative_error_pct: 0.9
+
+# Dataset de validação real (bags/)
+dataset:
+  scenarios:
+    - name: cenario1_parado
+      duration_s: 19
+      robot_detections_msgs: 152
+      odom_msgs_per_robot: 550
+    - name: cenario2_reto
+      duration_s: 18
+      robot_detections_msgs: 144
+      odom_msgs_per_robot: 522
+      cmd: "linear.x=0.1 nos 3 robos"
+    - name: cenario3_curva
+      duration_s: 18
+      robot_detections_msgs: 145
+      odom_msgs_per_robot: 535
+      cmd: "linear.x=0.12, angular.z=0.4 nos 3 robos"
+  bag_format: mcap
+  ros_distro: humble
+  mcap_package: ros-humble-rosbag2-storage-mcap  # NAO instalado por padrao no Humble
+
+# Resultado da avaliação (scripts/eval_ekf_vs_baseline.py)
+evaluation_result:
+  no_drift:
+    ekf_mean_error_m: 0.0356
+    odom_only_mean_error_m: 0.0000
+    note: "odometria = ground truth por definicao neste regime; EKF converge ao erro do YOLO (~3-6cm)"
+  drift_light:
+    ekf_mean_error_m: 0.0528
+    odom_only_mean_error_m: 0.0501
+    gain_pct: -5.3
+  drift_aggressive:
+    ekf_mean_error_m: 0.1282
+    odom_only_mean_error_m: 0.1681
+    gain_pct: 23.7
+    wilcoxon_p_value: "<0.001"
+    n_samples: 1323
