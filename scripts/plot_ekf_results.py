@@ -143,37 +143,98 @@ def run_scenario_with_trajectory(bag_path, inject_drift, rng, drift_rate_divisor
             cov_ekf, np.array(cov_trace_t), np.array(cov_trace_val), np.array(correction_t))
 
 
-def plot_trajectory(bag_path, out_path):
+def plot_trajectory(bag_path, out_path, smooth_window=21):
+    """Trajetória como linha contínua conectada (padrão confirmado em
+    papers reais de EKF/fusão sensorial — Housein et al. 2022, Hoang et al.
+    arXiv:1611.07112, Cioffi & Scaramuzza IROS 2020: trajetória é sempre
+    linha, nunca nuvem de pontos dispersos como em versões anteriores desta
+    figura). Usa um cenário com movimento real (cenario2_reto, não
+    cenario1_parado — sem deslocamento real não há trajetória para uma
+    linha representar). Aplica suavização leve (média móvel) antes de
+    plotar — sem isso, o ruído ponto-a-ponto da odometria/EKF vira
+    "espaguete" ilegível quando conectado diretamente."""
+    rng = np.random.default_rng(42)
+    traj_ekf, traj_odom, traj_gt, _, _, _, _, _, _, _ = run_scenario_with_trajectory(
+        bag_path, inject_drift=True, rng=rng, drift_rate_divisor=20.0)
+
+    def smooth_xy(traj, w):
+        if len(traj) < w:
+            return traj
+        kernel = np.ones(w) / w
+        x = np.convolve(traj[:, 0], kernel, mode='valid')
+        y = np.convolve(traj[:, 1], kernel, mode='valid')
+        return np.column_stack([x, y])
+
+    gt_s = smooth_xy(traj_gt, smooth_window)
+    odom_s = smooth_xy(traj_odom, smooth_window)
+    ekf_s = smooth_xy(traj_ekf, smooth_window)
+
+    # Figura mais larga que alta: a trajetória real é ~4x mais extensa em x
+    # que em y (movimento ~reto), então figsize quadrado (usado nas demais
+    # figuras) deixa a legenda abaixo do eixo colidir com o próprio plot.
+    fig, ax = plt.subplots(figsize=(5.0, 2.6))
+
+    ax.plot(gt_s[:, 0], gt_s[:, 1], color=COLOR_GT, linewidth=2.0,
+             label='Ground truth', zorder=4)
+    ax.plot(odom_s[:, 0], odom_s[:, 1], color=COLOR_ODOM, linewidth=1.0,
+             linestyle='--', alpha=0.85, label='Odometry only (drift)', zorder=1)
+    ax.plot(ekf_s[:, 0], ekf_s[:, 1], color=COLOR_EKF, linewidth=1.2,
+             label='EKF (fusion)', zorder=2)
+
+    ax.scatter(*gt_s[0], marker='o', s=25, c=COLOR_START, zorder=5, label='Start')
+
+    ax.set_xlabel('x (m)')
+    ax.set_ylabel('y (m)')
+    ax.set_aspect('equal')
+    ax.legend(loc='upper left', bbox_to_anchor=(1.02, 1.0), ncol=1,
+              markerscale=1.2, handletextpad=0.6, labelspacing=0.4,
+              fontsize=7)
+
+    fig.tight_layout(pad=0.3)
+    plt.savefig(out_path, bbox_inches='tight')
+    plt.close(fig)
+    print(f'Salvo: {out_path}')
+
+
+def plot_trajectory_dispersion_ellipse(bag_path, out_path):
+    """Variante C: mesmo cenário parado (cenario1_parado) da figura
+    original, mas troca a nuvem de pontos crus por uma elipse de dispersão
+    empírica (1 desvio-padrão, a partir da matriz de covariância amostral
+    dos próprios pontos — não a covariância do filtro) por série, mais o
+    centroide. Sem trajetória real para desenhar como linha (robô parado),
+    isso comunica "quão disperso" cada fonte é ao redor do ground truth sem
+    depender de nuvem de pontos ilegível."""
+    from matplotlib.patches import Ellipse
+
     rng = np.random.default_rng(42)
     traj_ekf, traj_odom, traj_gt, _, _, _, _, _, _, _ = run_scenario_with_trajectory(
         bag_path, inject_drift=True, rng=rng, drift_rate_divisor=20.0)
 
     fig, ax = plt.subplots(figsize=(3.5, 3.1))
 
-    # Ground truth como ponto único (robô parado neste cenário) — desenhado
-    # como um alvo grande, não uma "linha" de um pixel de comprimento.
     ax.scatter(traj_gt[:, 0], traj_gt[:, 1], s=90, marker='+', c=COLOR_GT,
                linewidths=1.4, label='Ground truth', zorder=4)
 
-    # Odometry-only: nuvem de pontos esparsos (não uma linha densa — o
-    # "espaguete" ilegível da v1 vinha de conectar 456 amostras com linha
-    # cheia). Pontos pequenos e semitransparentes leem como "dispersão do
-    # ruído", que é o que de fato é.
-    ax.scatter(traj_odom[:, 0], traj_odom[:, 1], s=5, c=COLOR_ODOM, alpha=0.35,
-               linewidths=0, label='Odometry only (drift)', zorder=1)
-
-    # EKF: mesma lógica, mas o argumento visual do paper é que a nuvem azul
-    # é mais compacta ao redor do ground truth que a laranja.
-    ax.scatter(traj_ekf[:, 0], traj_ekf[:, 1], s=5, c=COLOR_EKF, alpha=0.5,
-               linewidths=0, label='EKF (fusion)', zorder=2)
+    for traj, color, name in [(traj_odom, COLOR_ODOM, 'Odometry only (drift)'),
+                               (traj_ekf, COLOR_EKF, 'EKF (fusion)')]:
+        centroid = traj.mean(axis=0)
+        cov_xy = np.cov(traj[:, 0], traj[:, 1])
+        eigvals, eigvecs = np.linalg.eigh(cov_xy)
+        eigvals = np.clip(eigvals, 0, None)
+        width, height = 2 * np.sqrt(eigvals)  # 1 sigma
+        angle = np.degrees(np.arctan2(eigvecs[1, -1], eigvecs[0, -1]))
+        ellipse = Ellipse(centroid, width, height, angle=angle,
+                           facecolor=color, edgecolor=color, alpha=0.18,
+                           linewidth=1.2, zorder=2 if color == COLOR_EKF else 1)
+        ax.add_patch(ellipse)
+        ax.scatter(*centroid, s=25, c=color, edgecolors='black', linewidths=0.4,
+                   zorder=3, label=f'{name} (centroid ± 1σ)')
 
     ax.set_xlabel('x (m)')
     ax.set_ylabel('y (m)')
     ax.set_aspect('equal')
-    # Legenda abaixo do eixo, fora da área de dados — evita colidir com os
-    # pontos (o "upper right" da primeira tentativa cobria a nuvem de dados).
-    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.16), ncol=1,
-              markerscale=1.5, handletextpad=0.6, labelspacing=0.4,
+    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=1,
+              markerscale=1.2, handletextpad=0.6, labelspacing=0.4,
               fontsize=7)
 
     fig.tight_layout(pad=0.3)
@@ -293,12 +354,19 @@ def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     bags_dir = os.path.join(_REPO, 'bags')
 
-    # cenario1_parado escolhido por ter o ganho mais forte e representativo
-    # do resultado agregado (+46.3% neste cenário isolado vs. +23.7% médio
-    # dos 3 — ver eval_ekf_vs_baseline.py).
+    # Figura principal de Results: trajetória em linha, cenario2_reto (tem
+    # deslocamento real de ~1.5m — necessário para uma linha fazer sentido).
     plot_trajectory(
-        os.path.join(bags_dir, 'cenario1_parado'),
+        os.path.join(bags_dir, 'cenario2_reto'),
         os.path.join(OUT_DIR, 'lafusion_trajectory.png'))
+
+    # Figura complementar (Methodology/Discussion): cenario1_parado tem o
+    # ganho mais forte isolado (+46.3% vs. +23.7% agregado — ver
+    # eval_ekf_vs_baseline.py), mas sem deslocamento real; elipse de
+    # dispersão comunica compacidade sem precisar de nuvem de pontos crua.
+    plot_trajectory_dispersion_ellipse(
+        os.path.join(bags_dir, 'cenario1_parado'),
+        os.path.join(OUT_DIR, 'lafusion_trajectory_dispersion.png'))
 
     plot_covariance_trace(bags_dir, os.path.join(OUT_DIR, 'lafusion_covariance_trace.png'))
 
