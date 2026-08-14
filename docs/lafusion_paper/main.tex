@@ -1,0 +1,224 @@
+\documentclass[runningheads]{llncs}
+
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=black]{hyperref}
+
+\begin{document}
+
+\title{Characterizing Extended Kalman Filter Fusion of Visual Detection and Odometry Under Sparse Observation: A Multi-Robot Digital Twin Case Study}
+
+\titlerunning{EKF Fusion Under Sparse Observation}
+
+\author{Yan Santos\inst{1} \and Alisson [Sobrenome]\inst{1}}
+
+\authorrunning{Y. Santos and A. [Sobrenome]}
+
+\institute{[Instituição], [Cidade], [País]\\
+\email{[email]@[dominio]}}
+
+\maketitle
+
+\begin{abstract}
+% TODO: 150-250 palavras. Estrutura: problema (fallback discreto YOLO/odom
+% no CERISE) -> método (EKF com R adaptativo por confiança, gating
+% Mahalanobis) -> resultado (+23.7% no instante de correção; erro contínuo
+% pior que odometria sob cobertura de 0-28%) -> contribuição (validação em
+% digital twin ROS2/Gazebo real + caracterização honesta dos limites do
+% filtro sob observação esparsa, ancorada em Sinopoli et al. 2004).
+\keywords{Extended Kalman Filter \and Sensor Fusion \and Multi-Robot Localization \and Sparse Observations \and Digital Twin}
+\end{abstract}
+
+\section{Introduction}
+% TODO ~1 página: motivação de information fusion em sistemas multi-robô,
+% lacuna específica do CERISE (fallback discreto atual), contribuição.
+
+\section{Related Work}
+
+Our work builds on three layers of prior literature: (i) the classical
+formulation and convergence theory of EKF-based localization, (ii) the
+theory of Kalman filtering under intermittent or sparse observations, and
+(iii) recent multi-robot systems that fuse odometry with visual detection
+in realistic simulation or physical testbeds.
+
+\subsection{Classical EKF Localization and Convergence}
+
+Bailey and Durrant-Whyte~\cite{bailey2006slam} provide the standard
+tutorial formulation of EKF-based simultaneous localization and mapping,
+formalizing the motion model $x_k = f(x_{k-1}, u_k) + w_k$ and observation
+model $z_k = h(x_k) + v_k$ that our filter follows directly: odometry
+drives prediction, and YOLO-based visual detections drive correction. We
+adopt this notation throughout Section~\ref{sec:methodology}.
+
+Dissanayake et al.~\cite{dissanayake2001slam} prove convergence properties
+of EKF-SLAM covariance under the assumption of \emph{dense} landmark
+observation — i.e., that the filter is corrected regularly and
+predictably. This assumption is central to our Discussion
+(Section~\ref{sec:discussion}): our overhead-camera setup violates it by
+design, since a robot is visually detected in only 0--28\% of odometry
+readings depending on scenario, and this violation is precisely what
+produces the continuous-error finding we report.
+
+\subsection{Kalman Filtering Under Intermittent Observations}
+
+Sinopoli et al.~\cite{sinopoli2004intermittent} establish that, when
+observations arrive as a Bernoulli process, there exists a critical
+arrival probability below which the expected estimation error covariance
+diverges. Our Scenario~3 (curve/occlusion, 0\% visual correction over the
+full recording) sits at the limiting case $p \to 0$ covered by this
+theory — the covariance saturation we observe is therefore an expected
+consequence of the observation regime, not a symptom of filter
+misconfiguration.
+
+Censi~\cite{censi2009geometric} revisits Sinopoli et al.'s result and
+shows that the existence and value of this critical threshold depend on
+the error metric used to summarize the covariance matrix (Euclidean vs.\
+Riemannian manifold of SPD matrices). We report divergence using
+$\mathrm{trace}(P)$ (Section~\ref{sec:results}), and note this
+metric-dependence explicitly as a scoping remark rather than a claim of a
+universal threshold.
+
+\subsection{Recent Multi-Robot Visual-Odometric Fusion}
+
+Khosravi et al.~\cite{khosravi2026cooperative} report a decentralized
+cooperative localization scheme for two robots, fusing local EKF
+estimates with intermittent mutual LiDAR corrections, validated in Gazebo
+and on physical hardware. They report a 34--56\% RMSE reduction from
+fusion — the same order of magnitude as our $+23.7\%$ correction-instant
+gain — but do not report or discuss a continuous-error regime in which
+fusion underperforms the unfused baseline, which is the central,
+differentiating finding of our work.
+
+Ahmed and Fr\'emont~\cite{ahmed2026maritime} fuse YOLOv8 detections with a
+per-target EKF for decentralized multi-robot obstacle detection and
+tracking in a maritime scenario.
+% TODO (verificar no corpo do paper, não apenas no abstract, antes de
+% publicar): (a) composição exata da equipe multi-robô (UAVs/USV); (b) se
+% reportam mAP@0.5 comparável ao nosso 0.995 — se confirmado, citar como
+% correspondência externa que apoia nossa leitura de que o achado do erro
+% contínuo vem de geometria de sensor, não de detector fraco.
+
+Dobrynin and Garcia~\cite{dobrynin2025turtlebot} present a distributed
+Kalman filtering testbed using three TurtleBot3 units on ROS2 — the
+closest platform match to our own — but solve relative robot-to-robot
+localization without a camera, and therefore do not encounter the
+sparse-visual-coverage regime we characterize. We treat this as
+complementary rather than competing work, and revisit it as a Future Work
+direction in Section~\ref{sec:future-work}.
+
+\subsection{Positioning}
+
+Table~\ref{tab:related-work} summarizes how our work relates to these six
+references. Unlike Khosravi et al.~\cite{khosravi2026cooperative}, who
+report only a favorable fusion gain, our contribution is the joint
+report of both the correction-instant gain and the continuous-error
+degradation under sparse coverage, together with a theoretical grounding
+(\cite{sinopoli2004intermittent,censi2009geometric}) for why this
+trade-off is expected rather than a bug in our implementation.
+
+\begin{table}
+\caption{Positioning relative to prior work.}\label{tab:related-work}
+\begin{tabular}{|p{2.6cm}|p{2.6cm}|p{2.6cm}|p{2.6cm}|}
+\hline
+\textbf{Reference} & \textbf{Platform} & \textbf{Reports fusion gain?} & \textbf{Reports sparse-coverage degradation?} \\
+\hline
+Khosravi et al.~\cite{khosravi2026cooperative} & 2 robots, Gazebo + real & Yes (34--56\%) & No \\
+\hline
+Ahmed \& Fr\'emont~\cite{ahmed2026maritime} & Multi-robot maritime & Yes (detection-based) & No \\
+\hline
+Dobrynin \& Garcia~\cite{dobrynin2025turtlebot} & 3 TurtleBot3, ROS2 & N/A (no camera) & N/A \\
+\hline
+\textbf{This work} & 3 TurtleBot3, Gazebo/ROS2 & Yes ($+23.7\%$) & \textbf{Yes (characterized)} \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Methodology}
+\label{sec:methodology}
+% TODO ~2 páginas: estado [px,py,theta], Q de POS_DRIFT_ODOM, R de
+% box.conf[0], gating Mahalanobis (com ressalva de Altendorfer & Wirkert
+% 2015), COV_CAP como track coasting (Bar-Shalom), pipeline de calibração
+% de câmera (Zhang 2000), validação em duas etapas (NEES/NIS sintético +
+% bag real).
+
+\section{Experimental Setup}
+\label{sec:experimental-setup}
+% TODO ~1 página: CERISE, TurtleBot3+Gazebo+ROS2, 3 cenários gravados,
+% pacote de reprodutibilidade (bag+README+URDF+params+git SHA), MCAP.
+
+\section{Results}
+\label{sec:results}
+% TODO ~2-3 páginas: figuras lafusion_trajectory.png,
+% lafusion_error_over_time.png, lafusion_nees_nis.png,
+% lafusion_covariance_trace.png, lafusion_trajectory_dispersion.png.
+% Tabela de erro correction-instant (+23.7%) E erro contínuo (EKF pior
+% que odom, com trace(P) saturando em 2xCOV_CAP).
+
+\section{Discussion}
+\label{sec:discussion}
+% TODO: por que EKF (não UKF/PF/IMM) - ver decisão já tomada; limitação do
+% gating por Mahalanobis; framing do achado do erro contínuo como
+% confirmação de Dissanayake 2001 + Sinopoli 2004, não como falha.
+
+\section{Future Work}
+\label{sec:future-work}
+% TODO: (a) LiDAR como 3ª fonte de fusão; (b) incerteza formal de
+% projeção/Jacobiano; (c) covariance inflation / Q adaptativo por
+% tempo-desde-última-correção; (d) combinar com localização relativa
+% distribuída (Dobrynin & Garcia 2025).
+%
+% PRÓXIMOS PASSOS DE IMPLEMENTAÇÃO (código, não só texto — retomar amanhã,
+% ver memória project_lafusion_next_implementation_2026_08_13):
+% 1. Métrica alternativa de covariância no gráfico de saturação
+%    (lafusion_covariance_trace.png): hoje só trace(P); adicionar det(P)
+%    ou maior autovalor como segunda curva, motivado por Censi 2009 (o
+%    limiar crítico depende da métrica escolhida) — baixo esforço, reforça
+%    rigor metodológico sem tocar no filtro em si.
+% 2. NÃO implementar fusão via LiDAR mútuo (Khosravi et al. 2026) nem
+%    localização relativa distribuída (Dobrynin & Garcia 2025) antes da
+%    submissão — ambos exigiriam retrabalhar o EKF e re-validar NEES/NIS +
+%    o resultado já obtido (+23.7%), risco alto para o prazo de 16/08.
+%    Ambos continuam como Future Work em texto, não em código.
+
+\section{Conclusion}
+% TODO ~0.5 página.
+
+\begin{thebibliography}{8}
+
+\bibitem{bailey2006slam}
+Bailey, T., Durrant-Whyte, H.: Simultaneous localization and mapping
+(SLAM): Part I. IEEE Robotics \& Automation Magazine \textbf{13}(2),
+99--110 (2006)
+
+\bibitem{dissanayake2001slam}
+Dissanayake, M.W.M.G., Newman, P., Clark, S., Durrant-Whyte, H.F.,
+Csorba, M.: A solution to the simultaneous localization and map building
+(SLAM) problem. IEEE Transactions on Robotics and Automation
+\textbf{17}(3), 229--241 (2001)
+
+\bibitem{sinopoli2004intermittent}
+Sinopoli, B., Schenato, L., Franceschetti, M., Poolla, K., Jordan, M.I.,
+Sastry, S.S.: Kalman filtering with intermittent observations. IEEE
+Transactions on Automatic Control \textbf{49}(9), 1453--1464 (2004)
+
+\bibitem{censi2009geometric}
+Censi, A.: Geometric remarks on Kalman filtering with intermittent
+observations. arXiv:0906.1637 (2009)
+
+\bibitem{khosravi2026cooperative}
+Khosravi, N., Khosravi, N., Bozorg, M., Bahraini, M.S.: Decentralized
+Cooperative Localization for Multi-Robot Systems with Asynchronous Sensor
+Fusion. arXiv:2603.12075 (2026)
+
+\bibitem{ahmed2026maritime}
+Ahmed, M.F., Fr\'emont, V.: Decentralized Multi-Robot Obstacle Detection
+and Tracking in a Maritime Scenario. arXiv:2602.12012 (2026)
+
+\bibitem{dobrynin2025turtlebot}
+Dobrynin, D., Garcia, I.T.: A TurtleBot3 Hardware Testbed for Distributed
+Kalman Filter Localization. Senior Project, California Polytechnic State
+University, San Luis Obispo (2025)
+
+\end{thebibliography}
+\end{document}
