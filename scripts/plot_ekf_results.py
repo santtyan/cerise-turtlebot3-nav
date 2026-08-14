@@ -78,8 +78,12 @@ def run_scenario_with_trajectory(bag_path, inject_drift, rng, drift_rate_divisor
     odom_drifted = {}
     task_count = {'robot1': 0, 'robot2': 0, 'robot3': 0}
 
-    traj_ekf, traj_odom, traj_gt = [], [], []
+    traj_ekf, traj_odom, traj_gt, cov_ekf = [], [], [], []
     err_ekf_series, err_odom_series, err_t = [], [], []
+    # Série contínua (amostrada a cada leitura de odometria, não só nos
+    # instantes de correção YOLO) — necessária para ver a covariância
+    # crescer/saturar de fato entre correções, não só o "antes/depois".
+    cov_trace_t, cov_trace_val, correction_t = [], [], []
     t0 = None
 
     for t, topic, msg in events:
@@ -99,11 +103,15 @@ def run_scenario_with_trajectory(bag_path, inject_drift, rng, drift_rate_divisor
                 traj_ekf.append(tuple(filters[r].state[:2]))
                 traj_odom.append(odom_drifted[r])
                 traj_gt.append(gt[r])
+                cov_ekf.append(filters[r].cov.copy())
                 err_ekf_series.append(math.hypot(filters[r].state[0] - gt[r][0],
                                                   filters[r].state[1] - gt[r][1]))
                 err_odom_series.append(math.hypot(odom_drifted[r][0] - gt[r][0],
                                                    odom_drifted[r][1] - gt[r][1]))
-                err_t.append((t - t0) / 1e9 if t0 else 0.0)
+                t_rel = (t - t0) / 1e9 if t0 else 0.0
+                err_t.append(t_rel)
+                if ROBOT_TO_PLOT in assignments:
+                    correction_t.append(t_rel)
             continue
 
         if t0 is None:
@@ -126,13 +134,18 @@ def run_scenario_with_trajectory(bag_path, inject_drift, rng, drift_rate_divisor
         else:
             filters[robot_id].predict(noisy[0], noisy[1], yaw, t / 1e9)
 
+        if robot_id == ROBOT_TO_PLOT:
+            cov_trace_t.append((t - t0) / 1e9 if t0 else 0.0)
+            cov_trace_val.append(np.trace(filters[robot_id].cov[:2, :2]))
+
     return (np.array(traj_ekf), np.array(traj_odom), np.array(traj_gt),
-            np.array(err_ekf_series), np.array(err_odom_series), np.array(err_t))
+            np.array(err_ekf_series), np.array(err_odom_series), np.array(err_t),
+            cov_ekf, np.array(cov_trace_t), np.array(cov_trace_val), np.array(correction_t))
 
 
 def plot_trajectory(bag_path, out_path):
     rng = np.random.default_rng(42)
-    traj_ekf, traj_odom, traj_gt, _, _, _ = run_scenario_with_trajectory(
+    traj_ekf, traj_odom, traj_gt, _, _, _, _, _, _, _ = run_scenario_with_trajectory(
         bag_path, inject_drift=True, rng=rng, drift_rate_divisor=20.0)
 
     fig, ax = plt.subplots(figsize=(3.5, 3.1))
@@ -169,6 +182,61 @@ def plot_trajectory(bag_path, out_path):
     print(f'Salvo: {out_path}')
 
 
+def plot_covariance_trace(bags_dir, out_path, cov_cap=0.05):
+    """trace(P_xy) vs. tempo, em step plot, para os 3 cenários — mostra que
+    a covariância do EKF satura no teto de design (COV_CAP) durante os
+    intervalos sem correção YOLO em vez de crescer suavemente, um regime
+    previsto teoricamente por Sinopoli et al. 2004 ("Kalman Filtering with
+    Intermittent Observations", IEEE TAC) para taxas de observação abaixo de
+    um limiar crítico. O teto é desenhado como linha horizontal explícita
+    para deixar claro que é um limite de engenharia, não um valor de
+    convergência do filtro — e os instantes de correção são marcados para
+    mostrar a queda abrupta que os intervalos sem correção não têm.
+
+    Nota: COV_CAP (eval_ekf_vs_baseline.py) faz np.clip elemento-a-elemento
+    na matriz 3x3 inteira (posição x,y e yaw), então o teto do TRAÇO da
+    submatriz de posição 2x2 é 2*COV_CAP, não COV_CAP — refletido no eixo
+    aqui para a linha de referência bater com o platô real dos dados."""
+    cov_cap_trace = 2 * cov_cap
+    scenarios = ['cenario1_parado', 'cenario2_reto', 'cenario3_curva']
+    titles = ['(a) Stationary', '(b) Straight motion', '(c) Curve / occlusion']
+
+    fig, axes = plt.subplots(1, 3, figsize=(7.16, 2.5), sharey=True)
+
+    for ax, scenario, title in zip(axes, scenarios, titles):
+        rng = np.random.default_rng(42)
+        bag_path = os.path.join(bags_dir, scenario)
+        (_, _, _, _, _, _, _,
+         cov_trace_t, cov_trace_val, correction_t) = run_scenario_with_trajectory(
+            bag_path, inject_drift=True, rng=rng, drift_rate_divisor=20.0)
+
+        ax.step(cov_trace_t, cov_trace_val, where='post', color=COLOR_EKF,
+                linewidth=1.1, label='trace(P) — EKF', zorder=2)
+        ax.axhline(cov_cap_trace, color=COLOR_ODOM, linewidth=0.8, linestyle='--',
+                   label=f'2×COV_CAP = {cov_cap_trace}', zorder=1)
+        # Rug plot na base do eixo em vez de axvline por evento: com até 152
+        # correções numa figura de ~2in de largura, linhas verticais cheias
+        # se sobrepõem em um bloco sólido que compete visualmente com a
+        # série principal — marcadores curtos na base ficam legíveis mesmo
+        # em alta densidade e ainda comunicam a frequência relativa.
+        tick_y = cov_trace_val.min() - 0.1 * (cov_cap_trace - cov_trace_val.min())
+        ax.plot(correction_t, [tick_y] * len(correction_t), '|', color=COLOR_START,
+                markersize=4, markeredgewidth=0.6, label='YOLO correction', zorder=3)
+
+        ax.set_xlabel('Time (s)')
+        ax.set_title(title, fontsize=8.5, loc='left')
+
+    axes[0].set_ylabel('trace(P) — position covariance')
+    fig.subplots_adjust(top=0.78)
+    handles, labels = axes[0].get_legend_handles_labels()
+    leg = fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 1.0),
+                      ncol=2, frameon=False)
+
+    plt.savefig(out_path, bbox_extra_artists=(leg,), bbox_inches='tight')
+    plt.close(fig)
+    print(f'Salvo: {out_path}')
+
+
 def plot_error_over_time(bags_dir, out_path):
     scenarios = ['cenario1_parado', 'cenario2_reto', 'cenario3_curva']
     titles = ['(a) Stationary', '(b) Straight motion', '(c) Curve / occlusion']
@@ -188,7 +256,7 @@ def plot_error_over_time(bags_dir, out_path):
     for scenario in scenarios:
         rng = np.random.default_rng(42)
         bag_path = os.path.join(bags_dir, scenario)
-        _, _, _, err_ekf, err_odom, err_t = run_scenario_with_trajectory(
+        _, _, _, err_ekf, err_odom, err_t, _, _, _, _ = run_scenario_with_trajectory(
             bag_path, inject_drift=True, rng=rng, drift_rate_divisor=20.0)
         all_data.append((err_t, err_ekf, err_odom))
 
@@ -231,6 +299,8 @@ def main():
     plot_trajectory(
         os.path.join(bags_dir, 'cenario1_parado'),
         os.path.join(OUT_DIR, 'lafusion_trajectory.png'))
+
+    plot_covariance_trace(bags_dir, os.path.join(OUT_DIR, 'lafusion_covariance_trace.png'))
 
     plot_error_over_time(bags_dir, os.path.join(OUT_DIR, 'lafusion_error_over_time.png'))
 
