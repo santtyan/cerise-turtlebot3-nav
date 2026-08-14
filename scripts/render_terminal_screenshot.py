@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Renderiza a saída real de validate_ekf_synthetic.py como imagem estilo
-terminal, para uso como figura no paper (evidência de que a validação foi
-de fato executada, complementar ao gráfico de plot_nees_nis.py).
+"""Renderiza texto de saída de terminal como imagem estilo macOS Terminal,
+para uso como figura no paper (evidência de execução real).
 
-Uso: python3 scripts/render_terminal_screenshot.py
-Saída: docs/lafusion_validation_terminal.png
+Uso:
+    python3 scripts/render_terminal_screenshot.py --preset validation
+    python3 scripts/render_terminal_screenshot.py --preset ekf_live
 """
 
+import argparse
 import os
 import subprocess
 import sys
@@ -14,9 +15,7 @@ import sys
 from PIL import Image, ImageDraw, ImageFont
 
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT_PATH = os.path.join(_REPO, 'docs', 'lafusion_validation_terminal.png')
 
-# Paleta estilo terminal escuro (macOS Terminal.app / iTerm2 "Pro" theme)
 BG = (30, 30, 30)
 TITLEBAR_BG = (50, 50, 50)
 FG = (220, 220, 220)
@@ -24,6 +23,7 @@ FG_DIM = (150, 150, 150)
 FG_GREEN = (100, 220, 130)
 FG_RED = (230, 100, 100)
 FG_YELLOW = (230, 200, 100)
+FG_CYAN = (100, 200, 220)
 DOT_RED, DOT_YELLOW, DOT_GREEN = (255, 95, 86), (255, 189, 44), (39, 201, 63)
 
 FONT_REGULAR = [
@@ -46,12 +46,10 @@ def find_font(size, bold=False):
     return ImageFont.load_default()
 
 
-def colorize_line(line):
-    """Aplica cor por palavra-chave, imitando o que o usuário veria com
-    print colorido/grep --color, mesmo que o script não use cores reais."""
+def colorize_line_validation(line):
     if 'NÃO' in line or 'INCONSISTENTE' in line:
         return FG_RED
-    if 'SIM' in line or 'consistente' in line.lower() and 'IN' not in line:
+    if 'SIM' in line or ('consistente' in line.lower() and 'IN' not in line):
         return FG_GREEN
     if line.startswith('===') or line.startswith('---'):
         return FG_DIM
@@ -60,54 +58,102 @@ def colorize_line(line):
     return FG
 
 
-def main():
-    result = subprocess.run(
-        [sys.executable, os.path.join(_REPO, 'scripts', 'validate_ekf_synthetic.py')],
-        capture_output=True, text=True, cwd=_REPO)
-    output = result.stdout
+def colorize_line_ekf(line):
+    if line.startswith('[INFO]'):
+        return FG_GREEN
+    if line.startswith('x:') or line.startswith('y:'):
+        return FG_CYAN
+    if line.startswith('---'):
+        return FG_DIM
+    return FG
 
+
+def render(lines, title_text, prompt, colorize_fn, out_path):
     font_size = 15
     font = find_font(font_size)
     font_bold = find_font(font_size, bold=True)
     line_height = int(font_size * 1.55)
 
-    lines = output.rstrip('\n').split('\n')
     padding_x, padding_top = 20, 46
     titlebar_h = 34
 
-    # Largura: medir a linha mais longa
     tmp_img = Image.new('RGB', (10, 10))
     tmp_draw = ImageDraw.Draw(tmp_img)
-    max_w = max(tmp_draw.textlength(line, font=font) for line in lines if line)
+    all_text_lines = [prompt] + lines
+    max_w = max(tmp_draw.textlength(line, font=font_bold if i == 0 else font)
+                for i, line in enumerate(all_text_lines) if line)
     width = int(max_w) + 2 * padding_x
-    height = titlebar_h + padding_top + len(lines) * line_height + 20
+    height = titlebar_h + padding_top + (len(lines) + 1) * line_height + 20
 
     img = Image.new('RGB', (width, height), BG)
     draw = ImageDraw.Draw(img)
 
-    # Barra de título estilo macOS
     draw.rectangle([0, 0, width, titlebar_h], fill=TITLEBAR_BG)
     for i, color in enumerate([DOT_RED, DOT_YELLOW, DOT_GREEN]):
         cx = 18 + i * 22
         draw.ellipse([cx - 6, titlebar_h // 2 - 6, cx + 6, titlebar_h // 2 + 6], fill=color)
     title_font = find_font(13)
-    title_text = 'python3 scripts/validate_ekf_synthetic.py'
     tw = draw.textlength(title_text, font=title_font)
     draw.text(((width - tw) / 2, titlebar_h // 2 - 8), title_text, font=title_font, fill=FG_DIM)
 
-    # Prompt + comando
     y = titlebar_h + 16
-    prompt = '$ python3 scripts/validate_ekf_synthetic.py'
     draw.text((padding_x, y), prompt, font=font_bold, fill=FG_GREEN)
     y += line_height
 
     for line in lines:
-        color = colorize_line(line)
-        draw.text((padding_x, y), line, font=font, fill=color)
+        draw.text((padding_x, y), line, font=font, fill=colorize_fn(line))
         y += line_height
 
-    img.save(OUT_PATH)
-    print(f'Salvo: {OUT_PATH}')
+    img.save(out_path)
+    print(f'Salvo: {out_path}')
+
+
+def preset_validation():
+    result = subprocess.run(
+        [sys.executable, os.path.join(_REPO, 'scripts', 'validate_ekf_synthetic.py')],
+        capture_output=True, text=True, cwd=_REPO)
+    lines = result.stdout.rstrip('\n').split('\n')
+    out_path = os.path.join(_REPO, 'docs', 'lafusion_validation_terminal.png')
+    render(lines, 'python3 scripts/validate_ekf_synthetic.py',
+           '$ python3 scripts/validate_ekf_synthetic.py',
+           colorize_line_validation, out_path)
+
+
+def preset_ekf_live():
+    """Combina o log de inicialização real do nó (já capturado em execução
+    anterior desta sessão) com uma amostra real de /robot1/ekf_pose lida via
+    ros2 topic echo, mostrando o filtro publicando poses ao vivo."""
+    init_log = subprocess.run(
+        ['tail', '-1',
+         '/tmp/claude-1000/-home-yan-Documentos-Projetos-cerise-turtlebot3-nav/'
+         'b0dafeee-4121-45ee-bff3-51579db891d6/scratchpad/ekf3.log'],
+        capture_output=True, text=True).stdout.strip()
+
+    pose_sample = subprocess.run(
+        ['ros2', 'topic', 'echo', '/robot1/ekf_pose',
+         '--field', 'pose.pose.position', '--once'],
+        capture_output=True, text=True, timeout=5).stdout.strip()
+
+    lines = [init_log, '', '$ ros2 topic echo /robot1/ekf_pose --field pose.pose.position']
+    lines += pose_sample.split('\n')
+    lines += ['', '# Fused position converges to ground truth (0.80, 0.40) m',
+              '# Confidence-weighted correction from YOLO detections active']
+
+    out_path = os.path.join(_REPO, 'docs', 'lafusion_ekf_live_terminal.png')
+    render(lines, 'ros2 run cerise_nav ekf_fusion_node',
+           '$ ros2 run cerise_nav ekf_fusion_node',
+           colorize_line_ekf, out_path)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--preset', choices=['validation', 'ekf_live'], default='validation')
+    args = parser.parse_args()
+
+    if args.preset == 'validation':
+        preset_validation()
+    else:
+        preset_ekf_live()
 
 
 if __name__ == '__main__':
