@@ -11,10 +11,8 @@
 
 \titlerunning{EKF Fusion Under Sparse Observation}
 
-% Double-blind review (LAFusion 2026, per CMT submission guidelines):
-% author/institute/email/acknowledgements removed below. Restore from
-% [[reference_lars2026...]]-style memory or project records before the
-% camera-ready version, not before/during review.
+% Double-blind review: author/institute/email/acknowledgements removed.
+% Restore only for the post-acceptance camera-ready version.
 \author{Anonymous Author(s)}
 
 \authorrunning{Anonymous et al.}
@@ -54,8 +52,8 @@ Multi-robot systems that combine onboard odometry with external visual
 detection face a recurring design choice: how to combine two position
 estimates that are individually noisy, arrive at different rates, and
 are not always both available at the same instant. A common and
-pragmatic solution — used, for instance, in our own CERISE multi-robot
-digital twin prior to this work — is a \emph{discrete fallback}: use the
+pragmatic solution — used, for instance, in the multi-robot digital
+twin studied in this work prior to our contribution — is a \emph{discrete fallback}: use the
 visual detection when one is confidently associated to a robot, and fall
 back to raw odometry otherwise. This is simple and robust, but it
 discards information: it does not let a low-confidence detection
@@ -74,7 +72,7 @@ generally satisfy. Whether and how this matters in practice, on a real
 robotic platform rather than only in simulation, is the question this
 paper investigates.
 
-We replace CERISE's discrete fallback with a per-robot EKF fusing
+We replace this discrete fallback with a per-robot EKF fusing
 odometry and YOLO-based visual detection from an overhead camera, and
 evaluate it end-to-end on a ROS2/Gazebo digital twin using three
 TurtleBot3 robots. Our contribution is twofold. First, we validate the
@@ -280,7 +278,7 @@ the physical scenario, not by design choice.
 \section{Experimental Setup}
 \label{sec:experimental-setup}
 
-We evaluate our EKF within CERISE, a ROS2/Gazebo digital twin of a
+We evaluate our EKF within a ROS2/Gazebo digital twin of a
 multi-robot warehouse-style environment. Three TurtleBot3 Waffle units
 (\texttt{robot1}--\texttt{robot3}) operate in a shared simulated world
 alongside a static overhead camera mounted at $(0,0,3)$\,m with
@@ -577,7 +575,7 @@ $P$ to reflect growing uncertainty during long gaps rather than
 saturating at a fixed value — a more principled alternative to
 covariance capping, at the cost of an additional hyperparameter to
 calibrate. \textbf{LiDAR as a third fusion source.} Each robot in our
-CERISE testbed already publishes 2D LiDAR scans that go unused in this
+testbed already publishes 2D LiDAR scans that go unused in this
 work; fusing mutual LiDAR-based relative range, in the spirit of
 Khosravi et al.~\cite{khosravi2026cooperative}, could supply corrections
 during the exact intervals where the overhead camera loses visual
@@ -594,19 +592,6 @@ competing: combining robot-to-robot relative localization with our
 overhead-camera fusion could provide a second, independent correction
 channel structurally different from — and available during gaps
 in — visual coverage.
-%
-% PRÓXIMOS PASSOS DE IMPLEMENTAÇÃO (código, não só texto — retomar amanhã,
-% ver memória project_lafusion_next_implementation_2026_08_13):
-% 1. Métrica alternativa de covariância no gráfico de saturação
-%    (lafusion_covariance_trace.png): hoje só trace(P); adicionar det(P)
-%    ou maior autovalor como segunda curva, motivado por Censi 2009 (o
-%    limiar crítico depende da métrica escolhida) — baixo esforço, reforça
-%    rigor metodológico sem tocar no filtro em si.
-% 2. NÃO implementar fusão via LiDAR mútuo (Khosravi et al. 2026) nem
-%    localização relativa distribuída (Dobrynin & Garcia 2025) antes da
-%    submissão — ambos exigiriam retrabalhar o EKF e re-validar NEES/NIS +
-%    o resultado já obtido (+23.7%), risco alto para o prazo de 16/08.
-%    Ambos continuam como Future Work em texto, não em código.
 
 \section{Conclusion}
 
