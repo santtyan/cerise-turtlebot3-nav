@@ -83,7 +83,11 @@ def run_scenario_with_trajectory(bag_path, inject_drift, rng, drift_rate_divisor
     # Série contínua (amostrada a cada leitura de odometria, não só nos
     # instantes de correção YOLO) — necessária para ver a covariância
     # crescer/saturar de fato entre correções, não só o "antes/depois".
-    cov_trace_t, cov_trace_val, correction_t = [], [], []
+    # cov_trace_val = trace(P_xy); cov_maxeig_val = maior autovalor de P_xy
+    # (Censi 2009: o limiar crítico de observação depende da métrica de erro
+    # escolhida — trace() e maior-autovalor concordam sob P_xy isotrópica mas
+    # podem divergir sob covariância elíptica, ex. drift direcional).
+    cov_trace_t, cov_trace_val, cov_maxeig_val, correction_t = [], [], [], []
     t0 = None
 
     for t, topic, msg in events:
@@ -135,12 +139,15 @@ def run_scenario_with_trajectory(bag_path, inject_drift, rng, drift_rate_divisor
             filters[robot_id].predict(noisy[0], noisy[1], yaw, t / 1e9)
 
         if robot_id == ROBOT_TO_PLOT:
+            cov_xy = filters[robot_id].cov[:2, :2]
             cov_trace_t.append((t - t0) / 1e9 if t0 else 0.0)
-            cov_trace_val.append(np.trace(filters[robot_id].cov[:2, :2]))
+            cov_trace_val.append(np.trace(cov_xy))
+            cov_maxeig_val.append(np.linalg.eigvalsh(cov_xy).max())
 
     return (np.array(traj_ekf), np.array(traj_odom), np.array(traj_gt),
             np.array(err_ekf_series), np.array(err_odom_series), np.array(err_t),
-            cov_ekf, np.array(cov_trace_t), np.array(cov_trace_val), np.array(correction_t))
+            cov_ekf, np.array(cov_trace_t), np.array(cov_trace_val),
+            np.array(cov_maxeig_val), np.array(correction_t))
 
 
 def plot_trajectory(bag_path, out_path, smooth_window=21):
@@ -154,7 +161,7 @@ def plot_trajectory(bag_path, out_path, smooth_window=21):
     plotar — sem isso, o ruído ponto-a-ponto da odometria/EKF vira
     "espaguete" ilegível quando conectado diretamente."""
     rng = np.random.default_rng(42)
-    traj_ekf, traj_odom, traj_gt, _, _, _, _, _, _, _ = run_scenario_with_trajectory(
+    traj_ekf, traj_odom, traj_gt, _, _, _, _, _, _, _, _ = run_scenario_with_trajectory(
         bag_path, inject_drift=True, rng=rng, drift_rate_divisor=20.0)
 
     def smooth_xy(traj, w):
@@ -207,7 +214,7 @@ def plot_trajectory_dispersion_ellipse(bag_path, out_path):
     from matplotlib.patches import Ellipse
 
     rng = np.random.default_rng(42)
-    traj_ekf, traj_odom, traj_gt, _, _, _, _, _, _, _ = run_scenario_with_trajectory(
+    traj_ekf, traj_odom, traj_gt, _, _, _, _, _, _, _, _ = run_scenario_with_trajectory(
         bag_path, inject_drift=True, rng=rng, drift_rate_divisor=20.0)
 
     fig, ax = plt.subplots(figsize=(3.5, 3.1))
@@ -262,34 +269,60 @@ def plot_covariance_trace(bags_dir, out_path, cov_cap=0.05):
     scenarios = ['cenario1_parado', 'cenario2_reto', 'cenario3_curva']
     titles = ['(a) Stationary', '(b) Straight motion', '(c) Curve / occlusion']
 
-    fig, axes = plt.subplots(1, 3, figsize=(7.16, 2.5), sharey=True)
+    # Segunda linha de painéis: maior autovalor de P_xy, ao lado de trace(P) —
+    # sob P_xy isotrópica as duas métricas concordam (mesmo platô relativo),
+    # mas divergem sob covariância elíptica (ex. drift direcional), quando o
+    # limiar crítico de observação de Sinopoli 2004 depende da métrica
+    # escolhida (Censi 2009). Reportar ambas evita que a escolha de trace()
+    # sozinha seja lida como a única leitura possível da saturação.
+    fig, axes = plt.subplots(2, 3, figsize=(7.16, 4.4), sharey='row', sharex='col')
 
-    for ax, scenario, title in zip(axes, scenarios, titles):
+    for col, (scenario, title) in enumerate(zip(scenarios, titles)):
         rng = np.random.default_rng(42)
         bag_path = os.path.join(bags_dir, scenario)
         (_, _, _, _, _, _, _,
-         cov_trace_t, cov_trace_val, correction_t) = run_scenario_with_trajectory(
+         cov_trace_t, cov_trace_val, cov_maxeig_val, correction_t) = run_scenario_with_trajectory(
             bag_path, inject_drift=True, rng=rng, drift_rate_divisor=20.0)
 
-        ax.step(cov_trace_t, cov_trace_val, where='post', color=COLOR_EKF,
-                linewidth=1.1, label='trace(P) — EKF', zorder=2)
-        ax.axhline(cov_cap_trace, color=COLOR_ODOM, linewidth=0.8, linestyle='--',
-                   label=f'2×COV_CAP = {cov_cap_trace}', zorder=1)
+        ax_trace, ax_maxeig = axes[0, col], axes[1, col]
+
+        ax_trace.step(cov_trace_t, cov_trace_val, where='post', color=COLOR_EKF,
+                      linewidth=1.1, label='trace(P) — EKF', zorder=2)
+        ax_trace.axhline(cov_cap_trace, color=COLOR_ODOM, linewidth=0.8, linestyle='--',
+                         label=f'2×COV_CAP = {cov_cap_trace}', zorder=1)
+        ax_maxeig.step(cov_trace_t, cov_maxeig_val, where='post', color=COLOR_EKF,
+                       linewidth=1.1, label=r'$\lambda_{max}(P)$ — EKF', zorder=2)
+        # Clip elemento-a-elemento com P_xy ~isotrópica: cada autovalor
+        # individual satura em COV_CAP (não 2×COV_CAP, que é o teto do
+        # TRAÇO = soma dos dois autovalores) — confirmado empiricamente
+        # nesta figura (painel inferior satura em 0.05, não 0.1).
+        ax_maxeig.axhline(cov_cap, color=COLOR_ODOM, linewidth=0.8, linestyle='--',
+                          label=f'COV_CAP = {cov_cap}', zorder=1)
+
         # Rug plot na base do eixo em vez de axvline por evento: com até 152
         # correções numa figura de ~2in de largura, linhas verticais cheias
         # se sobrepõem em um bloco sólido que compete visualmente com a
         # série principal — marcadores curtos na base ficam legíveis mesmo
         # em alta densidade e ainda comunicam a frequência relativa.
-        tick_y = cov_trace_val.min() - 0.1 * (cov_cap_trace - cov_trace_val.min())
-        ax.plot(correction_t, [tick_y] * len(correction_t), '|', color=COLOR_START,
-                markersize=4, markeredgewidth=0.6, label='YOLO correction', zorder=3)
+        tick_y_trace = cov_trace_val.min() - 0.1 * (cov_cap_trace - cov_trace_val.min())
+        ax_trace.plot(correction_t, [tick_y_trace] * len(correction_t), '|', color=COLOR_START,
+                      markersize=4, markeredgewidth=0.6, label='YOLO correction', zorder=3)
+        tick_y_maxeig = cov_maxeig_val.min() - 0.1 * (cov_cap - cov_maxeig_val.min())
+        ax_maxeig.plot(correction_t, [tick_y_maxeig] * len(correction_t), '|', color=COLOR_START,
+                       markersize=4, markeredgewidth=0.6, label='YOLO correction', zorder=3)
 
-        ax.set_xlabel('Time (s)')
-        ax.set_title(title, fontsize=8.5, loc='left')
+        ax_trace.set_title(title, fontsize=8.5, loc='left')
+        ax_maxeig.set_xlabel('Time (s)')
 
-    axes[0].set_ylabel('trace(P) — position covariance')
-    fig.subplots_adjust(top=0.78)
-    handles, labels = axes[0].get_legend_handles_labels()
+    axes[0, 0].set_ylabel('trace(P) — position covariance')
+    axes[1, 0].set_ylabel(r'$\lambda_{max}(P)$ — position covariance')
+    fig.subplots_adjust(top=0.88, hspace=0.35)
+    h0, l0 = axes[0, 0].get_legend_handles_labels()
+    h1, l1 = axes[1, 0].get_legend_handles_labels()
+    # Combina as duas linhas de referência (2×COV_CAP para trace, COV_CAP
+    # para maior autovalor) sem duplicar a série EKF/YOLO correction.
+    handles = h0 + [h1[1]]
+    labels = l0 + [l1[1]]
     leg = fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 1.0),
                       ncol=2, frameon=False)
 
@@ -317,7 +350,7 @@ def plot_error_over_time(bags_dir, out_path):
     for scenario in scenarios:
         rng = np.random.default_rng(42)
         bag_path = os.path.join(bags_dir, scenario)
-        _, _, _, err_ekf, err_odom, err_t, _, _, _, _ = run_scenario_with_trajectory(
+        _, _, _, err_ekf, err_odom, err_t, _, _, _, _, _ = run_scenario_with_trajectory(
             bag_path, inject_drift=True, rng=rng, drift_rate_divisor=20.0)
         all_data.append((err_t, err_ekf, err_odom))
 

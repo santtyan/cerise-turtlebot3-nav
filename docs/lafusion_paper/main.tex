@@ -336,14 +336,21 @@ once corrections become sparse enough for the covariance ceiling
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.72\textwidth]{../lafusion/figures/lafusion_covariance_trace.png}
-\caption{$\mathrm{trace}(P_{xy})$ over time (step plot), all three
-scenarios. Short vertical ticks along the bottom mark successful YOLO
-corrections. The dashed line marks $2\times\mathrm{COV\_CAP}=0.1$, the
-ceiling on the position-covariance trace (Section~\ref{sec:methodology}).
-Coverage decreases left to right (27.6\% $\to$ 11.3\% $\to$ 0\%), and
-covariance saturates at the ceiling for correspondingly longer
-stretches, reaching permanent saturation in the zero-coverage case.}
+\includegraphics[width=0.9\textwidth]{../lafusion/figures/lafusion_covariance_trace.png}
+\caption{Position-covariance saturation over time (step plots), all three
+scenarios, under two metrics (top: $\mathrm{trace}(P_{xy})$; bottom:
+$\lambda_{max}(P_{xy})$, the largest eigenvalue), following Censi's
+\cite{censi2009geometric} observation that the critical observation
+threshold depends on the chosen error metric. Short vertical ticks along
+the bottom of each panel mark successful YOLO corrections. Dashed lines
+mark each metric's ceiling under the same element-wise clip
+(Section~\ref{sec:methodology}): $2\times\mathrm{COV\_CAP}=0.1$ for the
+trace (sum of both eigenvalues under near-isotropic $P_{xy}$) and
+$\mathrm{COV\_CAP}=0.05$ for the largest eigenvalue alone. Both metrics
+agree qualitatively: coverage decreases left to right (27.6\% $\to$
+11.3\% $\to$ 0\%), and covariance saturates at its ceiling for
+correspondingly longer stretches, reaching permanent saturation in the
+zero-coverage case.}
 \label{fig:covariance-trace}
 \end{figure}
 
