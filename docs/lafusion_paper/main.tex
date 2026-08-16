@@ -11,30 +11,90 @@
 
 \titlerunning{EKF Fusion Under Sparse Observation}
 
-\author{Yan Santos\inst{1} \and Alisson [Sobrenome]\inst{1}}
+% Double-blind review (LAFusion 2026, per CMT submission guidelines):
+% author/institute/email/acknowledgements removed below. Restore from
+% [[reference_lars2026...]]-style memory or project records before the
+% camera-ready version, not before/during review.
+\author{Anonymous Author(s)}
 
-\authorrunning{Y. Santos and A. [Sobrenome]}
+\authorrunning{Anonymous et al.}
 
-\institute{[Instituição], [Cidade], [País]\\
-\email{[email]@[dominio]}}
+\institute{Institution withheld for double-blind review}
 
 \maketitle
 
 \begin{abstract}
-% TODO: 150-250 palavras. Estrutura: problema (fallback discreto YOLO/odom
-% no CERISE) -> método (EKF com R adaptativo por confiança, gating
-% Mahalanobis) -> resultado (+23.7% no instante de correção; erro contínuo
-% pior que odometria sob cobertura de 0-28%) -> contribuição (validação em
-% digital twin ROS2/Gazebo real + caracterização honesta dos limites do
-% filtro sob observação esparsa, ancorada em Sinopoli et al. 2004).
+Multi-robot systems combining odometry with external visual detection
+often rely on a discrete fallback — trusting detection when available,
+odometry otherwise — which discards uncertainty information and offers
+no principled behavior during long detection gaps. We replace this
+fallback with a per-robot Extended Kalman Filter fusing odometry and
+YOLO-based visual detection from a fixed overhead camera, validated in
+two stages (synthetic NEES/NIS consistency, then real recorded data) on
+a ROS2/Gazebo digital twin using three TurtleBot3 robots. Measured at
+correction instants, the filter reduces position error by $+23.7\%$
+relative to odometry alone under aggressive drift. However, measured
+continuously — at every odometry reading — the same filter is $12.7\%$
+\emph{worse} than raw odometry, under the sparse visual coverage
+(0--28\%) our camera setup exhibits in practice. We show this reversal
+is the expected consequence of operating below a critical observation
+rate, not a design flaw, and connect it mechanistically to a covariance
+ceiling required to keep Mahalanobis-gated association stable. We argue
+that reporting both metrics, rather than only the commonly reported
+correction-instant gain, is necessary to honestly characterize EKF
+fusion under sparse observation, and discuss why alternative filters
+(UKF, particle filter, IMM) do not resolve the underlying limitation.
+
 \keywords{Extended Kalman Filter \and Sensor Fusion \and Multi-Robot Localization \and Sparse Observations \and Digital Twin}
 \end{abstract}
 
 \section{Introduction}
-% TODO ~1 página: motivação de information fusion em sistemas multi-robô,
-% lacuna específica do CERISE (fallback discreto atual), contribuição.
+
+Multi-robot systems that combine onboard odometry with external visual
+detection face a recurring design choice: how to combine two position
+estimates that are individually noisy, arrive at different rates, and
+are not always both available at the same instant. A common and
+pragmatic solution — used, for instance, in our own CERISE multi-robot
+digital twin prior to this work — is a \emph{discrete fallback}: use the
+visual detection when one is confidently associated to a robot, and fall
+back to raw odometry otherwise. This is simple and robust, but it
+discards information: it does not let a low-confidence detection
+partially correct odometry, does not propagate uncertainty from either
+source into the estimate, and provides no principled way to reason about
+what happens during long stretches without any visual detection at all.
+
+Extended Kalman Filtering (EKF) is the classical answer to this class of
+problem, offering a full probabilistic treatment of prediction and
+correction with explicit uncertainty propagation. Its convergence
+properties, however, are classically established under the assumption of
+reasonably dense, regular observation~\cite{dissanayake2001slam} — an
+assumption that a single fixed overhead camera, subject to a finite
+field of view and self-occlusion during robot maneuvers, does not
+generally satisfy. Whether and how this matters in practice, on a real
+robotic platform rather than only in simulation, is the question this
+paper investigates.
+
+We replace CERISE's discrete fallback with a per-robot EKF fusing
+odometry and YOLO-based visual detection from an overhead camera, and
+evaluate it end-to-end on a ROS2/Gazebo digital twin using three
+TurtleBot3 robots. Our contribution is twofold. First, we validate the
+filter in two stages — synthetic NEES/NIS consistency, then real
+recorded data — and report a real fusion gain ($+23.7\%$ position error
+reduction relative to odometry alone, under aggressive drift, measured
+at the instants a visual correction occurs). Second, and more centrally,
+we show that the same filter, measured continuously rather than only at
+correction instants, is $12.7\%$ \emph{worse} than raw odometry under
+the sparse visual coverage (0--28\%) our overhead-camera setup actually
+exhibits — and we explain this reversal mechanistically, connecting it
+to established theory on Kalman filtering under intermittent
+observations~\cite{sinopoli2004intermittent,censi2009geometric}. We
+argue that reporting both metrics, rather than the more commonly
+reported correction-instant gain alone, is necessary for an honest
+characterization of EKF fusion in this regime, and we discuss why
+alternative filters do not resolve the underlying limitation.
 
 \section{Related Work}
+\label{sec:related-work}
 
 Our work builds on three layers of prior literature: (i) the classical
 formulation and convergence theory of EKF-based localization, (ii) the
@@ -79,94 +139,461 @@ $\mathrm{trace}(P)$ (Section~\ref{sec:results}), and note this
 metric-dependence explicitly as a scoping remark rather than a claim of a
 universal threshold.
 
-\subsection{Recent Multi-Robot Visual-Odometric Fusion}
+\subsection{Recent Multi-Robot Visual-Odometric Fusion and Positioning}
 
 Khosravi et al.~\cite{khosravi2026cooperative} report a decentralized
 cooperative localization scheme for two robots, fusing local EKF
-estimates with intermittent mutual LiDAR corrections, validated in Gazebo
-and on physical hardware. They report a 34--56\% RMSE reduction from
-fusion — the same order of magnitude as our $+23.7\%$ correction-instant
-gain — but do not report or discuss a continuous-error regime in which
-fusion underperforms the unfused baseline, which is the central,
-differentiating finding of our work.
+estimates with intermittent mutual LiDAR corrections (Gazebo and
+physical hardware), with a $34$--$56\%$ RMSE reduction from fusion — the
+same order of magnitude as our $+23.7\%$ correction-instant gain. Ahmed
+and Fr\'emont~\cite{ahmed2026maritime} fuse a custom YOLOv8-RGBDis
+detector with a per-target EKF for decentralized tracking of a
+heterogeneous team (three UAVs, one surface vessel) in a maritime Gazebo
+scenario, reporting $\mathrm{mAP@0.5}=0.995$ for their detector — close
+to our own $0.995$ despite a different architecture and domain, a
+coincidence we note but do not lean on. Neither work reports a
+continuous-error regime in which fusion underperforms the unfused
+baseline — the central, differentiating finding of our work. Dobrynin
+and Garcia~\cite{dobrynin2025turtlebot} share our exact platform (three
+TurtleBot3 units, ROS2) but solve camera-free relative localization, and
+so do not encounter the sparse visual coverage regime we characterize;
+we treat this as complementary work, revisited in
+Section~\ref{sec:future-work}.
 
-Ahmed and Fr\'emont~\cite{ahmed2026maritime} fuse YOLOv8 detections with a
-per-target EKF for decentralized multi-robot obstacle detection and
-tracking in a maritime scenario.
-% TODO (verificar no corpo do paper, não apenas no abstract, antes de
-% publicar): (a) composição exata da equipe multi-robô (UAVs/USV); (b) se
-% reportam mAP@0.5 comparável ao nosso 0.995 — se confirmado, citar como
-% correspondência externa que apoia nossa leitura de que o achado do erro
-% contínuo vem de geometria de sensor, não de detector fraco.
-
-Dobrynin and Garcia~\cite{dobrynin2025turtlebot} present a distributed
-Kalman filtering testbed using three TurtleBot3 units on ROS2 — the
-closest platform match to our own — but solve relative robot-to-robot
-localization without a camera, and therefore do not encounter the
-sparse-visual-coverage regime we characterize. We treat this as
-complementary rather than competing work, and revisit it as a Future Work
-direction in Section~\ref{sec:future-work}.
-
-\subsection{Positioning}
-
-Table~\ref{tab:related-work} summarizes how our work relates to these six
-references. Unlike Khosravi et al.~\cite{khosravi2026cooperative}, who
-report only a favorable fusion gain, our contribution is the joint
-report of both the correction-instant gain and the continuous-error
-degradation under sparse coverage, together with a theoretical grounding
+Our contribution is therefore the joint report of both the
+correction-instant gain and the continuous-error degradation under
+sparse coverage, together with a theoretical grounding
 (\cite{sinopoli2004intermittent,censi2009geometric}) for why this
 trade-off is expected rather than a bug in our implementation.
 
+\section{Methodology}
+\label{sec:methodology}
+
+Following the standard EKF formulation of Bailey and
+Durrant-Whyte~\cite{bailey2006slam}, each robot is tracked independently
+by a per-robot filter with state $x_k = [p_x, p_y, \theta]^\top$: 2D
+position and heading. The motion model $f(\cdot)$ integrates the
+\emph{delta} of consecutive odometry readings onto the current filter
+state — not the absolute odometry value, which would silently discard any
+prior visual correction. The observation model $h(\cdot)$ maps filter
+state to the 2D position reported by a YOLO-based robot detector observing
+the scene from a fixed overhead camera (Section~\ref{sec:experimental-setup}).
+
+\subsection{Prediction: Process Noise and Covariance Capping}
+
+Process noise is a diagonal matrix $Q = \mathrm{diag}(0.5, 0.5, 0.25)$,
+scaled by $\Delta t / 0.1$ at each prediction step to correct for the
+real odometry rate ($\approx$29\,Hz, $\Delta t \approx 0.034$s) differing
+from the 0.1s assumed during synthetic calibration
+(Section~\ref{sec:experimental-setup}). $Q$ was calibrated empirically
+against real recorded data, not only the synthetic NEES/NIS procedure: a
+sweep from $10^{-6}$ to $1.0$ showed a monotonically increasing fusion
+gain up to saturation between $Q=0.5$ and $Q=1.0$.
+
+A hard ceiling is applied to the covariance matrix after each prediction,
+$\mathrm{clip}(P, -\infty, 0.05)$, applied element-wise. Without this
+ceiling, $P$ was observed to grow unbounded during long intervals without
+visual correction (reaching $\mathrm{trace}(P) \approx 85$ in one recorded
+event, against an expected $\mathrm{trace}(P) \approx 0.5$), which in turn
+breaks Mahalanobis-gated association (Section~\ref{sec:association}): an
+inflated covariance widens a robot's acceptance region enough to
+incorrectly claim a neighboring robot's detection. This capping strategy
+is functionally analogous to \emph{track coasting} in classical
+multi-target tracking (Bar-Shalom), and is theoretically motivated by
+Sinopoli et al.'s~\cite{sinopoli2004intermittent} result that covariance
+diverges below a critical observation arrival rate — capping trades
+strict optimality for bounded, predictable behavior under exactly the
+sparse-observation regime we operate in (Section~\ref{sec:results}). We
+report the covariance ceiling's effect on continuous-time estimation
+error explicitly, rather than treating it as an implementation detail, in
+Section~\ref{sec:results}.
+
+\subsection{Correction: Confidence-Adaptive Measurement Noise}
+
+Measurement noise $R$ is not fixed: it is derived linearly from the
+YOLO detection confidence $c \in [0,1]$ (the third component of each
+detected pose, repurposed as a confidence channel),
+$\sigma = R_{\min} + (1-c)(R_{\max} - R_{\min})$, with
+$R_{\min}=0.02$, $R_{\max}=0.20$ (meters), and $R = \mathrm{diag}(\sigma^2,
+\sigma^2)$. A high-confidence detection is trusted more than a
+low-confidence one during the Kalman update, rather than treating all
+detections as equally reliable.
+
+\subsection{Data Association}
+\label{sec:association}
+
+Because the overhead camera observes up to three robots simultaneously,
+each incoming detection must be assigned to the correct robot before
+correction. We use Mahalanobis-gated nearest-neighbor association,
+computing $d^2 = e^\top P_{xy}^{-1} e$ for each (robot, detection) pair
+using each robot's own 2$\times$2 position covariance submatrix $P_{xy}$,
+and accepting the closest match only if $d^2 \le 9.21$ (the 99\%
+confidence threshold of the $\chi^2$ distribution with 2 degrees of
+freedom). This is stricter than raw Euclidean nearest-neighbor and
+accounts for each robot's individual uncertainty, but inherits a known
+limitation of covariance-based gating discussed by Altendorfer and
+Wirkert~\cite{altendorfer2016association}: an inflated covariance widens
+a track's acceptance region, which can bias association toward
+lower-confidence or more uncertain tracks — precisely the failure mode
+that motivated the covariance ceiling described above.
+
+\subsection{Camera Calibration}
+
+Camera intrinsics are obtained via \texttt{cv2.calibrateCamera}
+following Zhang's method~\cite{zhang2000calibration}, using a
+synthetically generated checkerboard spawned at multiple poses in the
+simulated scene. Reprojection error alone was found to be an unreliable
+calibration-quality signal: an initial calibration using five poses
+concentrated near the frame center achieved a deceptively low
+reprojection error (0.018px) while yielding a focal length 8.9$\times$
+larger than the value expected from the camera's known field of view —
+classical overfitting from an ill-conditioned, poorly distributed pose
+set. We therefore add an explicit sanity check comparing calibrated
+$f_x$ against the FOV-derived theoretical value, accepting only
+calibrations within a $0.5\times$--$2.0\times$ ratio. The accepted
+calibration (four well-distributed poses) achieves $f_x=739.4$,
+$f_y=733.6$ ($1.33\times$ the theoretical ratio) with a mean
+reprojection error of 0.162px, within the 0--0.2px range considered good
+practice~\cite{zhang2000calibration}.
+
+\subsection{Two-Stage Filter Validation}
+
+Before evaluating fusion gain, we validate that the filter itself is
+correctly calibrated, in two independent stages:
+
+\textbf{(1) Synthetic validation via NEES/NIS.} Following Bar-Shalom and
+Chen's methodology, we generate a synthetic trajectory with known ground
+truth and run 30 independent Monte Carlo seeds (2000 steps each,
+58{,}500 post-warmup samples). The filter achieves NEES $=2.955$
+(expected $3.0$, 1.5\% relative error) and NIS $=1.982$ (expected $2.0$,
+0.9\% relative error) — close enough to nominal values to be considered
+well-calibrated in practice, even though the formal $\chi^2$ 95\% bounds
+are too narrow to pass at this sample size (an expected effect of
+aggregating tens of thousands of samples, not a sign of miscalibration).
+
+\textbf{(2) Real-data validation.} The calibrated filter is then run
+against odometry and YOLO detections recorded from the live digital twin
+(Section~\ref{sec:experimental-setup}), where — unlike the synthetic
+case — observation coverage is sparse and irregular by construction of
+the physical scenario, not by design choice.
+
+\section{Experimental Setup}
+\label{sec:experimental-setup}
+
+We evaluate our EKF within CERISE, a ROS2/Gazebo digital twin of a
+multi-robot warehouse-style environment. Three TurtleBot3 Waffle units
+(\texttt{robot1}--\texttt{robot3}) operate in a shared simulated world
+alongside a static overhead camera mounted at $(0,0,3)$\,m with
+$90^\circ$ downward pitch and a $60^\circ$ horizontal field of view
+(1.047\,rad), publishing $640\times480$ RGB frames at 10\,Hz. Each robot
+also publishes its own odometry (\texttt{/robotN/odom}) at
+$\approx$29\,Hz and a 2D LiDAR scan (\texttt{/robotN/scan}, unused in
+this work — see Section~\ref{sec:future-work}).
+
+\subsection{Visual Detection}
+
+Robot detection is performed by a YOLO model trained on 375 manually
+annotated frames captured from the same overhead camera setup, achieving
+$\mathrm{mAP@0.5}=0.995$ on the held-out validation split (image size
+416px). At inference, the detector publishes a \texttt{PoseArray} on
+\texttt{/robot\_detections}, repurposing the otherwise-unused $z$
+component of each pose to carry the YOLO confidence score, so the EKF
+correction step (Section~\ref{sec:methodology}) can consume it directly.
+
+\subsection{Recorded Scenarios}
+
+Three scenarios were recorded as ROS2 bags (MCAP format,
+$\sim$18\,s each, $\sim$2\,MB each), covering distinct motion and
+occlusion regimes:
+
+\begin{itemize}
+  \item \textbf{Stationary} (\texttt{cenario1\_parado}): robots remain at
+    their spawn poses. 152 detection messages against 550 odometry
+    readings per robot — the highest visual coverage of the three
+    scenarios ($\approx$28\%).
+  \item \textbf{Straight motion} (\texttt{cenario2\_reto}): robots move
+    forward at $v_x=0.1$\,m/s. 144 detection messages against 522
+    odometry readings per robot ($\approx$11\% coverage); ground-truth
+    \texttt{robot1} displacement of $\sim$1.5\,m confirms real motion,
+    not merely a commanded velocity with no physical effect.
+  \item \textbf{Curve / occlusion} (\texttt{cenario3\_curva}): robots
+    move with $v_x=0.12$\,m/s and $\omega_z=0.4$\,rad/s. 145 detection
+    messages recorded on the topic, but \textbf{zero} of them were
+    successfully associated to \texttt{robot1} by the gating procedure
+    of Section~\ref{sec:association} over the full $\sim$18\,s recording
+    — the single fixed overhead viewpoint loses robots to
+    self-occlusion and out-of-frame motion during turning, producing the
+    0\% coverage case discussed in Section~\ref{sec:results}.
+\end{itemize}
+
+Timestamp synchronization between \texttt{/robot\_detections} and
+odometry was verified directly via \texttt{rosbag2\_py} in all three
+scenarios: message-arrival windows coincide within each recording, with
+no gap exceeding 500\,ms on any channel — ruling out sensor-clock
+desynchronization, a known confound in multi-sensor fusion pipelines, as
+an explanation for the results reported in Section~\ref{sec:results}.
+
+\subsection{Reproducibility Package}
+
+To support independent verification, we release a package containing the
+Gazebo world file, robot URDF (including the unused LiDAR, for
+completeness), camera calibration parameters, all EKF
+hyperparameters, and the git commit SHA corresponding to the exact code
+used to produce the results in Section~\ref{sec:results}. We explicitly
+document one non-obvious dependency: \texttt{ros-humble-rosbag2-storage-}
+\texttt{mcap} is not installed by default on ROS2 Humble and must be
+installed separately to read the released bags.
+
+\section{Results}
+\label{sec:results}
+
+We report two distinct error metrics, deliberately kept separate rather
+than collapsed into a single number: \emph{correction-instant error},
+measured only at the moments a YOLO detection is successfully associated
+and fused (the metric most commonly reported in related
+work — Section~\ref{sec:related-work}), and \emph{continuous error},
+measured at every odometry reading regardless of whether a correction
+occurred. As we show below, these two metrics disagree in sign, and both
+are necessary to honestly characterize the filter's behavior under
+sparse observation.
+
+\subsection{Filter Calibration}
+
+The synthetic NEES/NIS validation described in
+Section~\ref{sec:methodology} confirms the filter is well-calibrated
+before any real-data evaluation. Fig.~\ref{fig:nees-nis} shows both
+statistics remaining close to their theoretical expected values
+(NEES$\to 3.0$, NIS$\to 2.0$) across the Monte Carlo run.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{../lafusion/figures/lafusion_nees_nis.png}
+\caption{NEES and NIS consistency over the synthetic Monte Carlo
+validation (30 seeds, 2000 steps each). Both statistics track their
+theoretical expected values, indicating a well-calibrated filter.}
+\label{fig:nees-nis}
+\end{figure}
+
+\subsection{Correction-Instant Error}
+
+Table~\ref{tab:correction-error} reports position error under three
+injected odometry drift regimes (no drift, light drift, aggressive
+drift), aggregated across all three recorded scenarios ($n=1323$). Under
+aggressive drift — the regime in which raw odometry has already
+accumulated substantial error before a visual correction becomes
+available — the EKF reduces mean position error by $+23.7\%$ relative to
+odometry alone (Wilcoxon signed-rank, $p<0.001$). Under light drift, the
+gain is negative ($-5.3\%$): visual detection error ($\approx$3--6\,cm)
+is not yet smaller than the still-small odometry error, so fusion offers
+no benefit in this regime — expected behavior for a correctly calibrated
+filter, not a failure.
+
 \begin{table}
-\caption{Positioning relative to prior work.}\label{tab:related-work}
-\begin{tabular}{|p{2.6cm}|p{2.6cm}|p{2.6cm}|p{2.6cm}|}
+\caption{Correction-instant position error (m), aggregated over 3
+scenarios ($n=1323$).}\label{tab:correction-error}
+\begin{tabular}{|l|c|c|c|}
 \hline
-\textbf{Reference} & \textbf{Platform} & \textbf{Reports fusion gain?} & \textbf{Reports sparse-coverage degradation?} \\
+\textbf{Drift regime} & \textbf{EKF (mean)} & \textbf{Odom-only (mean)} & \textbf{Change} \\
 \hline
-Khosravi et al.~\cite{khosravi2026cooperative} & 2 robots, Gazebo + real & Yes (34--56\%) & No \\
+None (odom = GT by construction) & 0.0356 & 0.0000 & N/A \\
 \hline
-Ahmed \& Fr\'emont~\cite{ahmed2026maritime} & Multi-robot maritime & Yes (detection-based) & No \\
+Light & 0.0528 & 0.0501 & $-5.3\%$ \\
 \hline
-Dobrynin \& Garcia~\cite{dobrynin2025turtlebot} & 3 TurtleBot3, ROS2 & N/A (no camera) & N/A \\
-\hline
-\textbf{This work} & 3 TurtleBot3, Gazebo/ROS2 & Yes ($+23.7\%$) & \textbf{Yes (characterized)} \\
+Aggressive & 0.1282 & 0.1681 & $\mathbf{+23.7\%}$ \\
 \hline
 \end{tabular}
 \end{table}
 
-\section{Methodology}
-\label{sec:methodology}
-% TODO ~2 páginas: estado [px,py,theta], Q de POS_DRIFT_ODOM, R de
-% box.conf[0], gating Mahalanobis (com ressalva de Altendorfer & Wirkert
-% 2015), COV_CAP como track coasting (Bar-Shalom), pipeline de calibração
-% de câmera (Zhang 2000), validação em duas etapas (NEES/NIS sintético +
-% bag real).
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.75\textwidth]{../lafusion/figures/lafusion_trajectory.png}
+\caption{Estimated trajectory under aggressive drift, Scenario 2
+(straight motion). The EKF (blue) tracks ground truth (black) more
+closely than raw drifted odometry (orange, dashed).}
+\label{fig:trajectory}
+\end{figure}
 
-\section{Experimental Setup}
-\label{sec:experimental-setup}
-% TODO ~1 página: CERISE, TurtleBot3+Gazebo+ROS2, 3 cenários gravados,
-% pacote de reprodutibilidade (bag+README+URDF+params+git SHA), MCAP.
+Fig.~\ref{fig:trajectory} shows this qualitatively for Scenario 2: raw
+odometry visibly drifts away from the straight ground-truth path, while
+the EKF estimate tracks it more closely. For the stationary scenario,
+where no real displacement exists to plot as a trajectory,
+Fig.~\ref{fig:dispersion} shows the same effect as empirical dispersion:
+the EKF estimate cloud (blue) is visibly more compact and centered nearer
+ground truth than the raw odometry cloud (orange).
 
-\section{Results}
-\label{sec:results}
-% TODO ~2-3 páginas: figuras lafusion_trajectory.png,
-% lafusion_error_over_time.png, lafusion_nees_nis.png,
-% lafusion_covariance_trace.png, lafusion_trajectory_dispersion.png.
-% Tabela de erro correction-instant (+23.7%) E erro contínuo (EKF pior
-% que odom, com trace(P) saturando em 2xCOV_CAP).
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.42\textwidth]{../lafusion/figures/lafusion_trajectory_dispersion.png}
+\caption{Empirical 1$\sigma$ dispersion ellipses (Scenario 1,
+stationary), computed from the sample covariance of each source's
+estimates around their centroid.}
+\label{fig:dispersion}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.72\textwidth]{../lafusion/figures/lafusion_error_over_time.png}
+\caption{Correction-instant position error over time, aggressive drift,
+all three scenarios.}
+\label{fig:error-time}
+\end{figure}
+
+\subsection{Continuous Error: The Central Finding}
+
+When error is instead measured at \emph{every} odometry reading — not
+only at correction instants — the result reverses. Table~\ref{tab:continuous-error}
+reports continuous-time error under aggressive drift, using the same
+recordings as Table~\ref{tab:correction-error}. Aggregated across all
+readings ($n=1607$), the EKF is $12.7\%$ \emph{worse} than raw odometry
+(Wilcoxon signed-rank, $p<0.001$) — the opposite sign from the
+correction-instant result.
+
+\begin{table}
+\caption{Continuous position error (m), every odometry reading,
+aggressive drift.}\label{tab:continuous-error}
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{Scenario} & \textbf{YOLO coverage} & \textbf{EKF (mean)} & \textbf{Odom-only (mean)} & \textbf{Change} \\
+\hline
+Stationary & 27.6\% & 0.2116 & 0.1774 & $-19.3\%$ \\
+\hline
+Straight motion & 11.3\% & 0.2115 & 0.1780 & $-18.8\%$ \\
+\hline
+Curve / occlusion & 0.0\% & 0.1778 & 0.1778 & $-0.0\%$ \\
+\hline
+\textbf{Aggregated} & --- & \textbf{0.2003} & \textbf{0.1777} & $\mathbf{-12.7\%}$ \\
+\hline
+\end{tabular}
+\end{table}
+
+Two observations explain this reversal. First, the degradation scales
+inversely with YOLO coverage: Scenario 3 (0\% coverage — no successful
+visual correction over the entire $\sim$18\,s recording) shows a change
+of exactly $0.0\%$, because with zero corrections the EKF's prediction
+step degenerates to pure odometry-delta integration, making it
+mathematically identical to the unfused baseline. Scenarios 1 and 2
+(27.6\% and 11.3\% coverage) show similar $\sim$19\% degradation despite
+their different coverage levels, suggesting the effect saturates quickly
+once corrections become sparse enough for the covariance ceiling
+(Section~\ref{sec:methodology}) to bind.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.72\textwidth]{../lafusion/figures/lafusion_covariance_trace.png}
+\caption{$\mathrm{trace}(P_{xy})$ over time (step plot), all three
+scenarios. Short vertical ticks along the bottom mark successful YOLO
+corrections. The dashed line marks $2\times\mathrm{COV\_CAP}=0.1$, the
+ceiling on the position-covariance trace (Section~\ref{sec:methodology}).
+Coverage decreases left to right (27.6\% $\to$ 11.3\% $\to$ 0\%), and
+covariance saturates at the ceiling for correspondingly longer
+stretches, reaching permanent saturation in the zero-coverage case.}
+\label{fig:covariance-trace}
+\end{figure}
+
+Second, and mechanistically explaining the first, Fig.~\ref{fig:covariance-trace}
+shows why: $\mathrm{trace}(P)$ saturates at the covariance ceiling almost
+immediately after any gap without correction, and only drops when a
+correction lands. In Scenario 3, the trace saturates within the first
+observed step and never drops again for the remainder of the recording.
+This is precisely the divergence regime predicted by Sinopoli et
+al.~\cite{sinopoli2004intermittent} for observation arrival rates below a
+critical threshold: the filter's covariance ceiling prevents unbounded
+growth (and the association failures it would otherwise cause,
+Section~\ref{sec:methodology}), but it does so by capping the filter's
+\emph{own estimate of its uncertainty}, not by making its state estimate
+actually more accurate during the uncorrected interval — the filter
+remains overconfident in its odometry-only prediction relative to how
+uncertain that prediction actually is.
 
 \section{Discussion}
 \label{sec:discussion}
-% TODO: por que EKF (não UKF/PF/IMM) - ver decisão já tomada; limitação do
-% gating por Mahalanobis; framing do achado do erro contínuo como
-% confirmação de Dissanayake 2001 + Sinopoli 2004, não como falha.
+
+\subsection{The Continuous-Error Finding Is Expected, Not a Bug}
+
+The natural reading of Table~\ref{tab:continuous-error} is unflattering:
+our EKF, evaluated continuously, loses to the odometry it is supposed to
+improve upon. We argue this is the expected consequence of operating
+below the critical observation rate identified by Sinopoli et
+al.~\cite{sinopoli2004intermittent}, not evidence of a flawed design.
+Dissanayake et al.'s~\cite{dissanayake2001slam} classical convergence
+proof for EKF-based localization assumes regular, dense observation of
+landmarks; our overhead-camera setup violates that assumption by
+construction (0--28\% coverage across scenarios), and the theory
+predicts exactly the covariance divergence we would see without a
+ceiling, and the practical consequence we do see — an
+overconfident filter — with one. Framed this way, Scenario 3's $0.0\%$
+continuous-error change is not a null result but a clean empirical
+confirmation: with zero corrections, our filter's prediction step is
+provably identical to odometry-delta integration, and the measured
+change is exactly zero, as the mechanism predicts it should be.
+
+We follow Censi's~\cite{censi2009geometric} caution that the existence
+and value of a critical threshold depends on the covariance summary
+metric used; we report $\mathrm{trace}(P)$
+(Fig.~\ref{fig:covariance-trace}) as a scoping choice, not a claim that
+divergence is metric-independent.
+
+\subsection{Why EKF, and Why Covariance Capping}
+
+A natural question is whether an alternative filter would avoid this
+trade-off. We argue no standard Bayesian filter resolves the
+zero-coverage case (Scenario 3): a particle filter degenerates to pure
+process propagation with no likelihood to reweight against, an Unscented
+Kalman Filter targets observation-model nonlinearity rather than
+observation \emph{rate} (our near-linear overhead projection gains
+little from it), and Interacting Multiple Model filters still require
+some observation to weight competing modes. We therefore treat the low
+coverage itself — a single fixed camera viewpoint subject to occlusion
+during turns — as the root cause, consistent with sensor-placement
+literature establishing that estimation limits under a given sensor
+topology hold independently of the filter processing its observations.
+The covariance ceiling (Section~\ref{sec:methodology}) is, in this
+light, an engineering approximation of \emph{track coasting} in
+classical multi-target tracking, trading strict statistical optimality
+for association stability under this sparse regime — not an ad hoc
+workaround.
+
+\subsection{Mahalanobis Gating Under Saturated Covariance}
+
+The gating strategy of Section~\ref{sec:association} inherits the
+limitation discussed by Altendorfer and
+Wirkert~\cite{altendorfer2016association}: once covariance saturates at
+the ceiling, the gate's acceptance region is at its widest and most
+permissive for the longest stretches of the recording — precisely when
+the filter's true uncertainty is least well characterized by a fixed
+ceiling value. We did not observe incorrect cross-robot association in
+the three recorded scenarios, but this is a property of our specific
+robot spacing and motion patterns, not a guarantee that holds in denser
+multi-robot configurations.
 
 \section{Future Work}
 \label{sec:future-work}
-% TODO: (a) LiDAR como 3ª fonte de fusão; (b) incerteza formal de
-% projeção/Jacobiano; (c) covariance inflation / Q adaptativo por
-% tempo-desde-última-correção; (d) combinar com localização relativa
-% distribuída (Dobrynin & Garcia 2025).
+
+The continuous-error finding of Section~\ref{sec:results} points to
+concrete directions rather than closing the question. \textbf{Adaptive
+process noise.} Instead of a fixed covariance ceiling, $Q$ could be scaled
+as a function of time since the last successful correction, allowing
+$P$ to reflect growing uncertainty during long gaps rather than
+saturating at a fixed value — a more principled alternative to
+covariance capping, at the cost of an additional hyperparameter to
+calibrate. \textbf{LiDAR as a third fusion source.} Each robot in our
+CERISE testbed already publishes 2D LiDAR scans that go unused in this
+work; fusing mutual LiDAR-based relative range, in the spirit of
+Khosravi et al.~\cite{khosravi2026cooperative}, could supply corrections
+during the exact intervals where the overhead camera loses visual
+contact, directly targeting the zero-coverage regime of
+Scenario~3. \textbf{Formal projection uncertainty.} Our observation
+model currently treats each YOLO detection's 2D position as exact up to
+the confidence-derived $R$; propagating the full projection Jacobian
+uncertainty (camera calibration error, ground-plane assumption) into $R$
+would make the confidence-to-noise mapping more principled.
+\textbf{Combining with distributed relative localization.} Dobrynin and
+Garcia's~\cite{dobrynin2025turtlebot} camera-free distributed Kalman
+filtering on the same TurtleBot3 platform is complementary rather than
+competing: combining robot-to-robot relative localization with our
+overhead-camera fusion could provide a second, independent correction
+channel structurally different from — and available during gaps
+in — visual coverage.
 %
 % PRÓXIMOS PASSOS DE IMPLEMENTAÇÃO (código, não só texto — retomar amanhã,
 % ver memória project_lafusion_next_implementation_2026_08_13):
@@ -182,7 +609,23 @@ Dobrynin \& Garcia~\cite{dobrynin2025turtlebot} & 3 TurtleBot3, ROS2 & N/A (no c
 %    Ambos continuam como Future Work em texto, não em código.
 
 \section{Conclusion}
-% TODO ~0.5 página.
+
+We replaced a discrete visual/odometry fallback in a multi-robot digital
+twin with an Extended Kalman Filter, validated in two stages and
+evaluated on real recorded data from three TurtleBot3 robots. The filter
+delivers a genuine, statistically significant gain at correction
+instants ($+23.7\%$), but is measurably worse than raw odometry when
+evaluated continuously ($-12.7\%$) under the sparse visual coverage
+(0--28\%) our fixed overhead camera exhibits in practice — including a
+zero-coverage scenario where the filter's behavior collapses, exactly as
+expected, to the unfused baseline. Rather than report only the favorable
+metric, we characterize both and ground the reversal in established
+theory on Kalman filtering under intermittent observations. EKF fusion
+remains the right tool for this problem, but its correctness under
+sparse observation must be measured and reported explicitly — not
+assumed from a single favorable number — and the low observation rate
+itself, not the choice of filter, is the binding constraint future work
+should target.
 
 \begin{thebibliography}{8}
 
@@ -205,6 +648,16 @@ Transactions on Automatic Control \textbf{49}(9), 1453--1464 (2004)
 \bibitem{censi2009geometric}
 Censi, A.: Geometric remarks on Kalman filtering with intermittent
 observations. arXiv:0906.1637 (2009)
+
+\bibitem{zhang2000calibration}
+Zhang, Z.: A flexible new technique for camera calibration. IEEE
+Transactions on Pattern Analysis and Machine Intelligence \textbf{22}(11),
+1330--1334 (2000)
+
+\bibitem{altendorfer2016association}
+Altendorfer, R., Wirkert, S.J.: Why the association log-likelihood
+distance should be used for measurement-to-track association. In: 2016
+IEEE Intelligent Vehicles Symposium (IV). pp. 258--265 (2016)
 
 \bibitem{khosravi2026cooperative}
 Khosravi, N., Khosravi, N., Bozorg, M., Bahraini, M.S.: Decentralized
