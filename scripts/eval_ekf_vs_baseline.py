@@ -223,11 +223,18 @@ def main():
         all_odom = np.array(all_odom)
 
         print(f'\n  --- Agregado (3 cenários, n={len(all_ekf)}) ---')
-        print(f'  EKF:       média={all_ekf.mean():.4f}m, mediana={np.median(all_ekf):.4f}m')
-        print(f'  odom-only: média={all_odom.mean():.4f}m, mediana={np.median(all_odom):.4f}m')
+        print(f'  EKF:       média={all_ekf.mean():.4f}m, mediana={np.median(all_ekf):.4f}m, '
+              f'RMSE={np.sqrt(np.mean(all_ekf ** 2)):.4f}m')
+        print(f'  odom-only: média={all_odom.mean():.4f}m, mediana={np.median(all_odom):.4f}m, '
+              f'RMSE={np.sqrt(np.mean(all_odom ** 2)):.4f}m')
 
         gap_pct = (all_odom.mean() - all_ekf.mean()) / all_odom.mean() * 100 if all_odom.mean() > 0 else 0
         print(f'  Redução de erro do EKF vs. odom-only: {gap_pct:.1f}%')
+
+        rmse_ekf = np.sqrt(np.mean(all_ekf ** 2))
+        rmse_odom = np.sqrt(np.mean(all_odom ** 2))
+        rmse_gap_pct = (rmse_odom - rmse_ekf) / rmse_odom * 100 if rmse_odom > 0 else 0
+        print(f'  Redução de RMSE do EKF vs. odom-only: {rmse_gap_pct:.1f}%')
 
         try:
             n = min(len(all_ekf), len(all_odom))

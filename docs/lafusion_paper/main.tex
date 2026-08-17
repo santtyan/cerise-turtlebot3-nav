@@ -43,7 +43,7 @@ correction-instant gain, is necessary to honestly characterize EKF
 fusion under sparse observation, and discuss why alternative filters
 (UKF, particle filter, IMM) do not resolve the underlying limitation.
 
-\keywords{Extended Kalman Filter \and Sensor Fusion \and Multi-Robot Localization \and Sparse Observations \and Digital Twin}
+\keywords{Extended Kalman Filter \and Intermittent Observations \and Cooperative Localization \and Asynchronous Sensor Fusion \and Multi-Robot Localization}
 \end{abstract}
 
 \section{Introduction}
@@ -108,8 +108,9 @@ metric-independence.
 
 Khosravi et al.~\cite{khosravi2026cooperative} report decentralized
 cooperative localization for two robots (mutual LiDAR corrections,
-Gazebo and hardware), with $34$--$56\%$ RMSE reduction — comparable in
-order of magnitude to our $+23.7\%$. Ahmed and
+Gazebo and hardware), with $34\%$ RMSE reduction for their decentralized
+scheme and $56\%$ for a dual-landmark variant — comparable in order of
+magnitude to our $+23.7\%$. Ahmed and
 Fr\'emont~\cite{ahmed2026maritime} fuse a custom YOLOv8-RGBDis detector
 with a per-target EKF for a maritime multi-robot team, reporting
 $\mathrm{mAP@0.5}=0.995$, numerically close to ours despite different
@@ -123,6 +124,16 @@ contribution is the joint report of both the correction-instant gain and
 the continuous-error degradation, grounded in
 \cite{sinopoli2004intermittent,censi2009geometric} for why this
 trade-off is expected rather than an implementation bug.
+
+We do not evaluate against a public multi-robot benchmark such as UTIAS
+MRCLAM~\cite{leung2011utias} or S3E~\cite{feng2022s3e}: both assume a
+sensor payload carried by each robot (range-bearing or onboard
+LiDAR/stereo/IMU), whereas our setup observes robots from a single
+external, static overhead camera — closer to a fixed smart-environment
+sensor than to cooperative SLAM. To our knowledge no public dataset
+combines a fixed external camera, YOLO-based detection, and multiple
+ground robots as fusion targets, which motivates the recorded dataset
+released with this work (Section~\ref{sec:experimental-setup}).
 
 \section{Methodology}
 \label{sec:methodology}
@@ -173,10 +184,19 @@ ceiling above.
 
 \textbf{Camera calibration.} Intrinsics come from
 \texttt{cv2.calibrateCamera} (Zhang~\cite{zhang2000calibration}) using a
-synthetic checkerboard at multiple poses, with a sanity check rejecting
-low-reprojection-error but ill-conditioned solutions (focal length far
-from the FOV-derived theoretical value) — accepted calibration:
-$f_x=739.4$, $f_y=733.6$, mean reprojection error 0.162px.
+synthetic checkerboard at multiple poses. A first calibration attempt
+with all four intrinsics free reached low reprojection error (0.162px)
+but an ill-conditioned focal length ($f_x$ 33\% above the FOV-derived
+theoretical value) — the degenerate case Zhang's method is known to
+suffer from when the checkerboard plane stays fronto-parallel to the
+sensor across all poses, which our fixed downward-looking camera and
+ground-plane board cannot avoid. We corrected this by fixing $f_x,f_y,
+c_x,c_y$ at their geometric nominal values and calibrating only lens
+distortion (\texttt{CALIB\_FIX\_FOCAL\_LENGTH},
+\texttt{CALIB\_FIX\_PRINCIPAL\_POINT}), the standard remedy when nominal
+intrinsics are already known; the corrected calibration reproduces the
+FOV-derived heuristic projection already used in production to within
+0.001m position error, confirming both are geometrically equivalent.
 
 \textbf{Two-stage validation.} (1) Synthetic NEES/NIS: 30 Monte Carlo
 seeds (2000 steps each) give NEES$=2.955$ (expected $3.0$) and
@@ -268,16 +288,18 @@ filter, not a failure.
 
 \begin{table}
 \caption{Correction-instant position error (m), aggregated over 3
-scenarios ($n=1323$).}\label{tab:correction-error}
-\begin{tabular}{|l|c|c|c|}
+scenarios ($n=1323$). Each cell reports EKF~/~odom-only; $\Delta$
+columns give EKF's relative reduction.}\label{tab:correction-error}
+\footnotesize
+\begin{tabular}{|l|c|c|c|c|}
 \hline
-\textbf{Drift regime} & \textbf{EKF (mean)} & \textbf{Odom-only (mean)} & \textbf{Change} \\
+\textbf{Drift} & \textbf{Mean EKF/Odom} & \textbf{Mean $\Delta$} & \textbf{RMSE EKF/Odom} & \textbf{RMSE $\Delta$} \\
 \hline
-None (odom = GT by construction) & 0.0356 & 0.0000 & N/A \\
+None (odom=GT) & 0.036 / 0.000 & N/A & 0.052 / 0.000 & N/A \\
 \hline
-Light & 0.0528 & 0.0501 & $-5.3\%$ \\
+Light & 0.053 / 0.050 & $-5.3\%$ & 0.068 / 0.066 & $-2.1\%$ \\
 \hline
-Aggressive & 0.1282 & 0.1681 & $\mathbf{+23.7\%}$ \\
+Aggressive & 0.128 / 0.168 & $\mathbf{+23.7\%}$ & 0.163 / 0.195 & $\mathbf{+16.7\%}$ \\
 \hline
 \end{tabular}
 \end{table}
@@ -302,23 +324,27 @@ only at correction instants — the result reverses. Table~\ref{tab:continuous-e
 reports continuous-time error under aggressive drift, using the same
 recordings as Table~\ref{tab:correction-error}. Aggregated across all
 readings ($n=1607$), the EKF is $12.7\%$ \emph{worse} than raw odometry
-(Wilcoxon signed-rank, $p<0.001$) — the opposite sign from the
-correction-instant result.
+by mean error and $13.4\%$ worse by RMSE (Wilcoxon signed-rank,
+$p<0.001$) — the opposite sign from the correction-instant result, with
+RMSE confirming the same reversal rather than being an artifact of the
+mean-error metric.
 
 \begin{table}
 \caption{Continuous position error (m), every odometry reading,
-aggressive drift.}\label{tab:continuous-error}
-\begin{tabular}{|l|c|c|c|c|}
+aggressive drift. Each cell reports EKF~/~odom-only; RMSE change
+confirms the same reversal as mean error.}\label{tab:continuous-error}
+\footnotesize
+\begin{tabular}{|l|c|c|c|c|c|}
 \hline
-\textbf{Scenario} & \textbf{YOLO coverage} & \textbf{EKF (mean)} & \textbf{Odom-only (mean)} & \textbf{Change} \\
+\textbf{Scenario} & \textbf{Cov.} & \textbf{Mean EKF/Odom} & \textbf{Mean $\Delta$} & \textbf{RMSE EKF/Odom} & \textbf{RMSE $\Delta$} \\
 \hline
-Stationary & 27.6\% & 0.2116 & 0.1774 & $-19.3\%$ \\
+Stationary & 27.6\% & 0.212 / 0.177 & $-19.3\%$ & 0.246 / 0.205 & $-19.8\%$ \\
 \hline
-Straight motion & 11.3\% & 0.2115 & 0.1780 & $-18.8\%$ \\
+Straight & 11.3\% & 0.212 / 0.178 & $-18.8\%$ & 0.245 / 0.206 & $-19.2\%$ \\
 \hline
-Curve / occlusion & 0.0\% & 0.1778 & 0.1778 & $-0.0\%$ \\
+Curve/occl. & 0.0\% & 0.178 / 0.178 & $-0.0\%$ & 0.205 / 0.205 & $-0.0\%$ \\
 \hline
-\textbf{Aggregated} & --- & \textbf{0.2003} & \textbf{0.1777} & $\mathbf{-12.7\%}$ \\
+\textbf{Aggregated} & --- & \textbf{0.200 / 0.178} & $\mathbf{-12.7\%}$ & \textbf{0.233 / 0.205} & $\mathbf{-13.4\%}$ \\
 \hline
 \end{tabular}
 \end{table}
@@ -435,7 +461,7 @@ under sparse observation must be measured and reported explicitly, and
 the observation rate itself — not the choice of filter — is the binding
 constraint future work should target.
 
-\begin{thebibliography}{8}
+\begin{thebibliography}{11}
 
 \bibitem{bailey2006slam}
 Bailey, T., Durrant-Whyte, H.: Simultaneous localization and mapping
@@ -480,6 +506,17 @@ and Tracking in a Maritime Scenario. arXiv:2602.12012 (2026)
 Dobrynin, D., Garcia, I.T.: A TurtleBot3 Hardware Testbed for Distributed
 Kalman Filter Localization. Senior Project, California Polytechnic State
 University, San Luis Obispo (2025)
+
+\bibitem{leung2011utias}
+Leung, K.Y.K., Halpern, Y., Barfoot, T.D., Liu, H.H.T.: The UTIAS
+multi-robot cooperative localization and mapping dataset. The
+International Journal of Robotics Research \textbf{30}(8), 969--974
+(2011)
+
+\bibitem{feng2022s3e}
+Feng, D., Qi, Y., Zhong, S., Chen, Z., Chen, Q., Chen, H., Wu, J., Ma,
+J.: S3E: A multi-robot multimodal dataset for collaborative SLAM.
+arXiv:2210.13723 (2022)
 
 \end{thebibliography}
 \end{document}

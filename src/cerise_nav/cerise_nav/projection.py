@@ -55,6 +55,43 @@ def world_to_pixel_with_camera(
     return cx_norm, cy_norm
 
 
+def pixel_to_world_with_camera(
+    cx_norm: float,
+    cy_norm: float,
+    camera_height: float,
+    camera_info,
+) -> tuple:
+    """
+    Projeta pixel normalizado YOLO para coordenada do mapa, usando
+    intrínsecos reais (fx, fy, cx, cy de camera_info, tipicamente vindos de
+    camera_calibration.npz).
+
+    Convenção de eixos validada empiricamente contra pixel_to_world_simple +
+    world_x,world_y=raw_y,-raw_x (yolo_detector.py, produção): NÃO é a mesma
+    convenção documentada em world_to_pixel_with_camera (aquela função, usada
+    só por dataset_collector.py — não usado em produção — está espelhada em
+    X quando comparada empiricamente contra a heurística validada; não
+    corrigida aqui para não alterar esse consumidor legado sem necessidade).
+    """
+    fx = camera_info.k[0]
+    fy = camera_info.k[4]
+    cx = camera_info.k[2]
+    cy = camera_info.k[5]
+    img_w = camera_info.width
+    img_h = camera_info.height
+
+    u = cx_norm * img_w
+    v = cy_norm * img_h
+
+    cam_x = (u - cx) / fx * camera_height
+    cam_y = (v - cy) / fy * camera_height
+
+    world_y = -cam_x
+    world_x = -cam_y
+
+    return world_x, world_y
+
+
 def robot_bbox_normalized(camera_height: float, camera_info, robot_radius: float = 0.17) -> tuple:
     """
     Calcula w/h do bounding box do robô em coordenadas YOLO normalizadas.

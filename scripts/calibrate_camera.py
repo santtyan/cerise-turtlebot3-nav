@@ -193,10 +193,42 @@ def main():
         rclpy.shutdown()
         return
 
-    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
-        objpoints, imgpoints, img_shape, None, None)
+    # Calibração completa dos 4 intrínsecos (fx,fy,cx,cy) é mal-condicionada
+    # neste setup: câmera fixa olhando reto para baixo (pitch=pi/2) e o
+    # tabuleiro sempre no plano do chão (z~0) significa que TODAS as poses
+    # têm o tabuleiro fronto-paralelo ao sensor (só variação de yaw/XY no
+    # próprio plano, nunca de tilt relativo à câmera) — caso degenerado
+    # clássico de Zhang (2000)/Sturm & Maybank (1999): sem variação de
+    # inclinação relativa, fx e a distância percebida ficam quase
+    # linearmente dependentes, permitindo erro de reprojeção baixo com fx/cx
+    # fisicamente incorretos (achado real desta sessão: fx 33% inflado, cx
+    # deslocado ~44px, erro de reprojeção ainda assim 0.162px).
+    #
+    # Correção padrão-ouro quando a geometria é conhecida a priori (aqui:
+    # altura e FOV nominais da câmera simulada são exatos, não estimados):
+    # fixar fx/fy/cx/cy no valor nominal geométrico e calibrar SÓ a
+    # distorção radial/tangencial (Szeliski, "Computer Vision: Algorithms
+    # and Applications", cap. 11; prática padrão em visão robótica quando
+    # extrínsecos/intrínsecos nominais já são confiáveis). Evita o
+    # mal-condicionamento em vez de tentar compensá-lo com mais poses no
+    # mesmo plano degenerado.
+    fov_h = 1.047  # rad, ver world_with_camera.world
+    fx_nominal = (img_shape[0] / 2) / math.tan(fov_h / 2)
+    fy_nominal = fx_nominal  # pixels quadrados, mesma escala em x/y
+    cx_nominal, cy_nominal = img_shape[0] / 2.0, img_shape[1] / 2.0
+    mtx_guess = np.array([[fx_nominal, 0, cx_nominal],
+                           [0, fy_nominal, cy_nominal],
+                           [0, 0, 1]], dtype=np.float64)
 
-    print(f'\n=== Resultado da calibração (cv2.calibrateCamera, Zhang 2000) ===')
+    calib_flags = (cv2.CALIB_USE_INTRINSIC_GUESS
+                   | cv2.CALIB_FIX_FOCAL_LENGTH
+                   | cv2.CALIB_FIX_PRINCIPAL_POINT
+                   | cv2.CALIB_FIX_ASPECT_RATIO)
+    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
+        objpoints, imgpoints, img_shape, mtx_guess, None, flags=calib_flags)
+
+    print(f'\n=== Resultado da calibração (cv2.calibrateCamera, Zhang 2000, '
+          f'fx/fy/cx/cy fixados no nominal geométrico — só distorção calibrada) ===')
     print(f'RMS reprojection error: {ret:.4f}')
     print(f'Matriz intrínseca (K):\n{mtx}')
     print(f'Coeficientes de distorção: {dist.ravel()}')
@@ -209,28 +241,23 @@ def main():
     mean_error = total_error / len(objpoints)
     print(f'Erro médio de reprojeção por ponto: {mean_error:.4f} px')
 
-    # Checagem de sanidade: erro de reprojeção baixo NÃO garante parâmetros
-    # fisicamente corretos com poucas poses mal distribuídas (overfitting do
-    # solver, compensado por distorção extrema) — comparar fx contra o valor
-    # geométrico esperado a partir do FOV conhecido da câmera do Gazebo.
-    fov_h = 1.047  # rad, ver world_with_camera.world
-    fx_expected = (img_shape[0] / 2) / math.tan(fov_h / 2)
-    fx_calibrated = mtx[0, 0]
-    fx_ratio = fx_calibrated / fx_expected
-    print(f'\nChecagem de sanidade: fx esperado (geometria)={fx_expected:.1f}, '
-          f'fx calibrado={fx_calibrated:.1f}, razão={fx_ratio:.2f}x')
+    # Checagem de sanidade: com CALIB_FIX_FOCAL_LENGTH/FIX_PRINCIPAL_POINT,
+    # fx/cx são travados no nominal por construção — esta checagem confirma
+    # que os flags realmente pegaram (guarda-corpo contra erro de versão do
+    # OpenCV), não mais uma medida de mal-condicionamento como antes.
+    fx_ratio = mtx[0, 0] / fx_nominal
+    cx_shift_px = abs(mtx[0, 2] - cx_nominal)
+    print(f'\nChecagem de sanidade: fx calibrado/nominal={fx_ratio:.4f} '
+          f'(esperado 1.0000), deslocamento de cx={cx_shift_px:.2f}px (esperado 0px)')
+    assert abs(fx_ratio - 1.0) < 1e-6 and cx_shift_px < 1e-6, \
+        'fx/cx não ficaram fixos no nominal — flags CALIB_FIX_* não tiveram efeito'
 
-    sane = 0.5 <= fx_ratio <= 2.0
-    if mean_error < 0.2 and sane:
-        print('RESULTADO: calibração BOA (erro de reprojeção e fx dentro do esperado).')
-    elif mean_error < 0.2 and not sane:
-        print(f'RESULTADO: erro de reprojeção baixo ({mean_error:.4f}px) MAS fx está '
-              f'{fx_ratio:.1f}x fora do esperado — sinal de overfitting/poses mal '
-              f'condicionadas (poucas poses, pouca variação de ângulo). NÃO aplicar '
-              f'esta calibração ao pipeline sem mais poses distintas (recomendado 10+, '
-              f'cobrindo cantos/bordas do frame, não só perto do centro).')
+    if mean_error < 0.2:
+        print('RESULTADO: calibração BOA (distorção calibrada com reprojeção baixa, '
+              'fx/fy/cx/cy no nominal geométrico por construção).')
     elif mean_error < 1.0:
-        print('RESULTADO: calibração ACEITÁVEL, mas fora da faixa ideal (0-0.2px).')
+        print('RESULTADO: calibração ACEITÁVEL, mas fora da faixa ideal (0-0.2px) — '
+              'revisar detecção de cantos antes de aplicar ao pipeline.')
     else:
         print('RESULTADO: calibração RUIM — revisar poses/detecção antes de aplicar ao pipeline.')
 

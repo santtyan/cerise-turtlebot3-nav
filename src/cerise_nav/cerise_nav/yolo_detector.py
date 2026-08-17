@@ -10,7 +10,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CameraInfo
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Float32, String
 from geometry_msgs.msg import PoseArray, Pose
@@ -25,7 +25,7 @@ try:
 except ImportError:
     YOLO_AVAILABLE = False
 
-from cerise_nav.projection import pixel_to_world_simple
+from cerise_nav.projection import pixel_to_world_simple, pixel_to_world_with_camera
 
 
 CAMERA_HEIGHT = 3.0
@@ -53,11 +53,26 @@ class YoloDetector(Node):
         self.declare_parameter('conf_threshold', CONF_THRESHOLD)
         self.declare_parameter('camera_height', CAMERA_HEIGHT)
         self.declare_parameter('horizontal_fov', HORIZONTAL_FOV)
+        # use_calibrated_projection: A/B contra a projeção heurística por FOV
+        # (padrão). Usa camera_calibration.npz (cv2.calibrateCamera, Zhang 2000)
+        # via /camera/camera_info em vez de pixel_to_world_simple.
+        self.declare_parameter('use_calibrated_projection', False)
+        self.declare_parameter(
+            'calibration_path',
+            '/home/yan/Documentos/Projetos/cerise-turtlebot3-nav/camera_calibration.npz')
 
         model_path = self.get_parameter('model_path').value
         self.conf = self.get_parameter('conf_threshold').value
         self.cam_height = self.get_parameter('camera_height').value
         self.fov = self.get_parameter('horizontal_fov').value
+        self.use_calibrated = self.get_parameter('use_calibrated_projection').value
+        self.camera_info = None
+
+        if self.use_calibrated:
+            calib = np.load(self.get_parameter('calibration_path').value)
+            self._calib_mtx = calib['mtx']
+            self.create_subscription(
+                CameraInfo, '/camera/camera_info', self._camera_info_cb, SENSOR_QOS)
 
         if not YOLO_AVAILABLE:
             self.get_logger().error('ultralytics não instalado. pip install ultralytics')
@@ -115,12 +130,24 @@ class YoloDetector(Node):
     def _odom_cb(self, robot_id: str, msg: Odometry):
         self.odom[robot_id] = (msg.pose.pose.position.x, msg.pose.pose.position.y)
 
+    def _camera_info_cb(self, msg: CameraInfo):
+        # Substitui fx/fy/cx/cy publicados pelo Gazebo pelos calibrados
+        # (camera_calibration.npz) mantendo width/height reais da mensagem.
+        msg.k[0] = float(self._calib_mtx[0, 0])
+        msg.k[4] = float(self._calib_mtx[1, 1])
+        msg.k[2] = float(self._calib_mtx[0, 2])
+        msg.k[5] = float(self._calib_mtx[1, 2])
+        self.camera_info = msg
+
     def _img_cb(self, msg: Image):
         try:
             frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         except Exception as e:
             self.get_logger().warn(f'cv_bridge erro: {e}')
             return
+
+        if self.use_calibrated and self.camera_info is None:
+            return  # aguarda CameraInfo antes da primeira detecção
 
         h, w = frame.shape[:2]
         results = self.model.predict(frame, conf=self.conf, verbose=False)
@@ -130,15 +157,19 @@ class YoloDetector(Node):
             for box in results[0].boxes:
                 # Centro do bbox em coordenadas normalizadas
                 cx_px, cy_px = box.xywhn[0][:2].tolist()  # normalizado [0,1]
-                raw_x, raw_y = pixel_to_world_simple(
-                    cx_px, cy_px,
-                    camera_height=self.cam_height,
-                    horizontal_fov=self.fov,
-                    img_width=w,
-                    img_height=h,
-                )
-                # Câmera pitch=π/2: world_x=raw_y, world_y=-raw_x (validado empiricamente)
-                world_x, world_y = raw_y, -raw_x
+                if self.use_calibrated:
+                    world_x, world_y = pixel_to_world_with_camera(
+                        cx_px, cy_px, self.cam_height, self.camera_info)
+                else:
+                    raw_x, raw_y = pixel_to_world_simple(
+                        cx_px, cy_px,
+                        camera_height=self.cam_height,
+                        horizontal_fov=self.fov,
+                        img_width=w,
+                        img_height=h,
+                    )
+                    # Câmera pitch=π/2: world_x=raw_y, world_y=-raw_x (validado empiricamente)
+                    world_x, world_y = raw_y, -raw_x
                 conf_val = float(box.conf[0])
                 detections.append((world_x, world_y, conf_val))
 
