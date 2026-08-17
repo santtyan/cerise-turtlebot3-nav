@@ -7,7 +7,7 @@
 - Compilar papers LaTeX: `pdflatex -interaction=nonstopmode main.tex` — rodar **2 vezes** (referências cruzadas só resolvem na 2ª passada). Contar páginas: `pdfinfo main.pdf | grep Pages`.
 - Subir o pipeline multi-robô: `./launch_3robots_with_camera.sh`, aguardar **70s+** antes de rodar qualquer outro nó (Nav2 demora a estabilizar).
 - Nós zumbis do Gazebo/Nav2 travados: `pkill -9 component_container` antes de tentar relançar — reiniciar sem isso deixa portas DDS presas.
-- Se um nó ROS2 continua logando mas nenhum subscriber CLI recebe nada (mesmo com QoS compatível), é estado DDS travado do processo específico — mate e relance, não precisa reiniciar o ambiente inteiro.
+- Se um nó ROS2 continua logando mas nenhum subscriber CLI recebe nada (mesmo com QoS compatível), é estado DDS travado do processo específico — mate e relance, não precisa reiniciar o ambiente inteiro. **Atenção**: matar/relançar e confirmar `ros2 topic hz` saudável não garante que a publicação continue estável durante uma gravação `ros2 bag record` seguinte — sempre conferir a contagem real de mensagens no bag gravado, não confiar só no `hz` prévio (ver `feedback_gazebo_operational_gotchas` na memória).
 
 ## Git
 
