@@ -27,6 +27,7 @@ Dois papers em desenvolvimento no repo: LARS 2026 (`docs/paper_lars/`, já subme
 - `verify-claim-against-code` — protocolo de checar toda alegação técnica/numérica contra código ou execução real.
 - `paper-figure-style` — padrão-ouro de figura científica (matplotlib) para papers de robótica/fusão sensorial deste projeto.
 - `anonymize-paper` — checklist de anonimização double-blind (`.tex` + metadados de PDF).
+- `critical-presentation-review` — revisão crítica sem pontos cegos para slides/apresentações (CERISE, LARS, LAFusion): toda decisão justificada, arquitetura e benchmarks explícitos, perguntas difíceis antecipadas.
 
 ## RViz2 não tem screenshot programático
 
