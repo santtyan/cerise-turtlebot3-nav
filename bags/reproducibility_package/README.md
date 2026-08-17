@@ -7,12 +7,17 @@ A Case Study on the CERISE Digital Twin" (título de trabalho).
 ## Git SHA de referência
 
 ```
-3bf2521b719dc2195dbd43c6f9f0492bbe74e91a
+fd62b08c08f5b2f90255c55abf3bf2141c8f80ab
 ```
 
 Todo o código citado abaixo (com caminhos relativos à raiz do repositório
 `cerise-turtlebot3-nav`) corresponde exatamente a este commit. Para
 reproduzir os resultados, faça checkout deste SHA antes de rodar os scripts.
+
+**Nota (atualizado nesta revisão)**: o SHA anterior (`3bf2521b7...`) usava
+uma calibração de câmera com os 4 intrínsecos livres, que se mostrou
+mal-condicionada (ver item 4 dos achados metodológicos abaixo, revisado).
+`camera_calibration.npz` neste pacote já reflete a versão corrigida.
 
 ## Conteúdo deste pacote
 
@@ -97,11 +102,14 @@ excessivamente rigoroso com muitas amostras agregadas).
 ### 6. Rodar a avaliação completa (EKF vs. baseline vs. ground truth)
 
 ```bash
-python3 scripts/eval_ekf_vs_baseline.py
+python3 scripts/eval_ekf_vs_baseline.py       # Tabela 1 (correction-instant), com RMSE
+python3 scripts/eval_ekf_continuous_error.py  # Tabela 2 (continuous error), com RMSE
 ```
 
-Reproduz a Tabela de Resultados do paper (3 condições: sem drift, drift
-leve, drift agressivo — ver `params.yaml` para os números esperados).
+O primeiro reproduz a Tabela 1 do paper (3 condições: sem drift, drift
+leve, drift agressivo). O segundo reproduz a Tabela 2 (erro medido a cada
+leitura de odometria, não só nos instantes de correção — o achado central
+do paper) — ver `params.yaml` para os números esperados de ambos.
 
 ## Achados metodológicos relevantes para reprodução (honestidade epistêmica)
 
@@ -136,14 +144,42 @@ enganosos fora de contexto.
    histórico de commits para o diagnóstico completo.
 
 4. **Calibração de câmera: erro de reprojeção baixo não garante parâmetros
-   corretos.** A primeira tentativa de calibração (5 poses concentradas
-   perto do centro do frame) deu erro de reprojeção de 0.018px — parecendo
-   excelente — mas o `fx` calibrado estava 8.9x maior que o valor
-   geometricamente esperado pelo FOV conhecido da câmera. É overfitting
-   clássico por poses mal distribuídas. `calibrate_camera.py` inclui uma
-   checagem de sanidade (`fx_sanity_ratio`) para detectar esse problema
-   automaticamente — a calibração final aceita (4 poses espalhadas) tem
-   `fx_sanity_ratio=1.33` (dentro da faixa aceitável 0.5x-2.0x).
+   corretos, mesmo com poses espalhadas.** Duas tentativas mostraram isso:
+   a primeira (5 poses concentradas perto do centro do frame) deu erro de
+   reprojeção de 0.018px mas `fx` 8.9x maior que o esperado — overfitting
+   clássico por poses mal distribuídas. A segunda tentativa (poses
+   espalhadas pelo frame, `fx_sanity_ratio=1.33`, então dentro da faixa
+   "aceitável" 0.5x-2.0x usada originalmente) ainda estava mal-condicionada:
+   ao aplicar essa calibração ao pipeline, o erro de posição saltou para
+   ~0.75m (vs. ~0.03m da heurística por FOV). Causa raiz identificada: com a
+   câmera fixa olhando reto para baixo, o tabuleiro de calibração fica
+   sempre fronto-paralelo ao sensor em todas as poses (só variação de
+   yaw/XY no próprio plano do chão, nunca de tilt relativo à câmera) — o
+   caso degenerado clássico de Zhang (2000)/Sturm & Maybank (1999): sem
+   variação de inclinação relativa, `fx` e a distância percebida ficam
+   quase linearmente dependentes, permitindo erro de reprojeção baixo com
+   intrínsecos fisicamente incorretos. **Correção aplicada**: como a
+   geometria da câmera simulada já é conhecida com precisão (altura e FOV
+   nominais exatos), `calibrate_camera.py` agora fixa `fx,fy,cx,cy` no
+   valor nominal geométrico (`cv2.CALIB_FIX_FOCAL_LENGTH` +
+   `cv2.CALIB_FIX_PRINCIPAL_POINT`) e calibra só a distorção — a prática
+   padrão-ouro quando os intrínsecos nominais já são confiáveis. A
+   calibração corrigida reproduz a heurística por FOV já usada em produção
+   a menos de 0.001m de diferença, confirmando que ambas são
+   geometricamente equivalentes (`fx_sanity_ratio` na checagem de sanidade
+   antiga não detecta este tipo de mal-condicionamento — ver nota no
+   próprio `calibrate_camera.py`).
+
+5. **A lógica do EKF (predict/correct, `Q`, teto de covariância) está
+   duplicada em 3 arquivos**: `src/cerise_nav/cerise_nav/ekf_fusion_node.py`
+   (nó ROS2 de produção), `scripts/eval_ekf_vs_baseline.py` e
+   `scripts/eval_ekf_continuous_error.py` (avaliação offline sobre os
+   bags), e `scripts/validate_ekf_synthetic.py` (validação sintética) —
+   cada um reimplementa a mesma matemática com nomes de método diferentes,
+   em vez de importar de um módulo único compartilhado. Limitação de
+   engenharia conhecida, não corrigida por risco de invalidar resultados já
+   validados perto do prazo de submissão: uma correção futura no filtro
+   precisa ser replicada manualmente nos 3 arquivos.
 
 ## Referências bibliográficas citadas nos comentários do código
 

@@ -58,10 +58,16 @@ o que importa cientificamente.)*
 
 ### scripts/
 - `validate_ekf_synthetic.py` — etapa 1.5: validação sintética NEES/NIS.
-- `calibrate_camera.py` — passo 2.5: calibração de câmera com checagem de
-  sanidade (fx vs. valor teórico).
+- `calibrate_camera.py` — passo 2.5: calibração de câmera. Corrigida nesta
+  revisão: fx/fy/cx/cy agora fixados no nominal geométrico (a calibração
+  completa dos 4 intrínsecos era mal-condicionada, ver
+  `bags/reproducibility_package/README.md` item 4).
 - `eval_ekf_vs_baseline.py` — passo 4: EKF vs. odom-only vs. ground truth
-  nos 3 bags reais (resultado principal do paper).
+  nos 3 bags reais, erro medido nos instantes de correção YOLO (Tabela 1
+  do paper), com RMSE.
+- `eval_ekf_continuous_error.py` — erro medido a cada leitura de odometria,
+  não só nos instantes de correção (Tabela 2 do paper, o achado central),
+  com RMSE.
 - `plot_ekf_results.py` / `plot_architecture_diagram.py` / `plot_nees_nis.py`
   — geração das figuras de resultado/diagrama.
 - `render_terminal_screenshot.py` — gera a captura estilizada da validação.
@@ -71,6 +77,13 @@ o que importa cientificamente.)*
   Mahalanobis).
 - `association.py` — módulo de associação compartilhado (greedy +
   Mahalanobis).
+- `projection.py` — projeção world↔pixel (heurística por FOV, em produção;
+  e via intrínsecos calibrados, `pixel_to_world_with_camera`/
+  `world_to_pixel_with_camera`, ambas confirmadas geometricamente
+  equivalentes após a correção da calibração).
+- `yolo_detector.py` — nó ROS2 que publica `/robot_detections`; parâmetro
+  `use_calibrated_projection` (default `False`) permite A/B entre as duas
+  projeções acima sem mudar o comportamento padrão.
 
 ### bags/
 - `cenario{1,2,3}_*` — dados brutos gravados no Gazebo (MCAP).
@@ -82,12 +95,23 @@ o que importa cientificamente.)*
 
 ## Resultado principal (resumo)
 
-| Condição | Erro EKF | Erro odom-only | Ganho |
+**Tabela 1 — erro nos instantes de correção YOLO** (`eval_ekf_vs_baseline.py`):
+
+| Condição | Erro EKF | Erro odom-only | Ganho (mean / RMSE) |
 |---|---|---|---|
 | Sem drift artificial | 3.6cm | 0.0cm | 0% (odom = ground truth por definição) |
-| Drift leve | 5.3cm | 5.0cm | -5.3% |
-| **Drift agressivo** | **12.8cm** | **16.8cm** | **+23.7%** (Wilcoxon p<0.001, n=1323) |
+| Drift leve | 5.3cm | 5.0cm | -5.3% / -2.1% |
+| **Drift agressivo** | **12.8cm** | **16.8cm** | **+23.7% / +16.7%** (Wilcoxon p<0.001, n=1323) |
+
+**Tabela 2 — erro contínuo, a cada leitura de odometria** (`eval_ekf_continuous_error.py`,
+achado central do paper): sob a mesma condição de drift agressivo, mas
+medindo continuamente em vez de só nos instantes de correção, o EKF é
+**12.7% pior** que odometria pura (RMSE: -13.4%, Wilcoxon p<0.001, n=1607) —
+sinal invertido em relação à Tabela 1, explicado no paper como consequência
+teórica esperada de operar abaixo da taxa crítica de observação (Sinopoli
+et al. 2004), não uma falha de implementação.
 
 Ver `bags/reproducibility_package/README.md` para a interpretação completa
 e as ressalvas metodológicas (por que o ganho depende do regime de drift,
-os 2 bugs encontrados e corrigidos durante a avaliação, etc.).
+os bugs encontrados e corrigidos durante a avaliação, a correção da
+calibração de câmera, etc.).

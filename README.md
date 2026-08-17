@@ -4,6 +4,14 @@
 
 Simula 2 TurtleBot3 Waffle com navegação autônoma (Nav2), coleta dataset de imagens com anotações de posição e treina YOLO v8 para estimar posição dos robôs somente pela imagem da câmera.
 
+> **Trabalho de fusão sensorial (EKF)**: este repositório também contém um
+> segundo trabalho, independente deste README — um Extended Kalman Filter
+> fundindo detecção YOLO e odometria para localização multi-robô (paper
+> LAFusion 2026). Código em `src/cerise_nav/cerise_nav/ekf_fusion_node.py`
+> e `scripts/eval_ekf_vs_baseline.py`/`eval_ekf_continuous_error.py`,
+> documentação consolidada em [`docs/lafusion/README.md`](docs/lafusion/README.md),
+> pacote de reprodutibilidade em [`bags/reproducibility_package/README.md`](bags/reproducibility_package/README.md).
+
 ## Objetivo (Prof. Alisson)
 
 1. ✅ Simular 2 TurtleBot3 Waffle com navegação autônoma Nav2
