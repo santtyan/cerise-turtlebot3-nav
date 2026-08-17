@@ -107,7 +107,7 @@ Estado & Submetido no EasyChair em 06/08 & 8 páginas prontas, prazo 04/09 \\
 \end{column}
 \begin{column}{0.44\textwidth}
 \centering
-\includegraphics[width=0.75\textwidth]{../paper_lars/en/fig_digitaltwin.png}
+\includegraphics[width=0.75\textwidth]{figures/fig_digitaltwin.png}
 
 \tiny
 \begin{tabular}{ll}
@@ -155,11 +155,11 @@ PPO (odom) & 19,83 s & 29,37 s & \textbf{0,135} \\
 Carga moderada, 1000 ep. pareados, Wilcoxon $p<0{,}001$. \textbf{O guloso vence}: tempo de resposta $\sim$\textbf{12\% pior} para o PPO. A proximidade entre PPO(YOLO) e PPO(odom) indica que o ruído do gêmeo digital é efeito de segunda ordem, não a causa.
 
 \vspace{0.1cm}
-\includegraphics[width=\textwidth]{../paper_lars/en/fig_load.png}
+\includegraphics[width=\textwidth]{figures/fig_load.png}
 \end{column}
 \begin{column}{0.5\textwidth}
 \centering
-\includegraphics[width=0.85\textwidth]{../paper_lars/en/fig_boxplot.png}
+\includegraphics[width=0.85\textwidth]{figures/fig_boxplot.png}
 
 \vspace{0.1cm}
 \scriptsize O boxplot mostra p95/média comparável entre políticas ($\approx$1,47--1,56): a desvantagem vem de deslocamento de toda a distribuição, não de cauda catastrófica. Sob carga, o gap encolhe de +19,0\% para +7,7\%, mas o guloso permanece mais rápido em todo o intervalo testado.
@@ -285,7 +285,7 @@ NIS & 1,982 & 2,0 (erro 0,9\%) \\
 % ============================================================
 \begin{frame}{LAFusion — Consistência do filtro ao longo do tempo}
 \centering
-\includegraphics[width=0.85\textwidth]{../lafusion/figures/lafusion_nees_nis.png}
+\includegraphics[width=0.85\textwidth]{figures/lafusion_nees_nis.png}
 
 \vspace{0.2cm}
 \small NEES e NIS ao longo dos 2000 passos da validação Monte Carlo (30 sementes), com valores esperados teóricos (3,0 e 2,0) e faixa de confiança 95\%.
@@ -319,7 +319,7 @@ Sob drift agressivo, o EKF reduz o erro médio em \textbf{+23,7\%} frente à odo
 % ============================================================
 \begin{frame}{LAFusion — Trajetória estimada}
 \centering
-\includegraphics[width=0.62\textwidth]{../lafusion/figures/lafusion_trajectory.png}
+\includegraphics[width=0.62\textwidth]{figures/lafusion_trajectory.png}
 
 \vspace{0.2cm}
 \small Cenário 2 (movimento reto) sob drift agressivo: EKF (azul) vs. odometria bruta com drift (laranja, tracejada) vs. verdade terrestre (preto).
@@ -355,7 +355,7 @@ Medido continuamente, o mesmo filtro é \textbf{12,7\% pior} que odometria pura:
 \begin{frame}{LAFusion — Por que o erro contínuo piora (fundamentação teórica)}
 \begin{columns}[T]
 \begin{column}{0.42\textwidth}
-\includegraphics[width=\textwidth]{../lafusion/figures/lafusion_covariance_trace.png}
+\includegraphics[width=\textwidth]{figures/lafusion_covariance_trace.png}
 \end{column}
 \begin{column}{0.58\textwidth}
 \scriptsize

@@ -25,11 +25,14 @@ narrative and defensibility of a presentation, not just its numbers.
    arbitrary to a reviewer even when it isn't. If a slide states a
    choice, the choice needs a visible reason next to it — a full
    sentence, not a bullet fragment implying it should be obvious.
-2. **Code architecture is a slide, not a footnote.** For each project
-   covered, name the real modules/files behind the pipeline (not only
-   the conceptual diagram) — e.g. `ekf_fusion_node.py`,
-   `association.py`, `allocation_env.py`. A reviewer who asks "onde
-   isso está implementado?" needs an answer already on screen.
+2. **Code architecture is a slide, not a footnote, and needs an actual
+   diagram.** For each project covered, name the real modules/files
+   behind the pipeline AND draw the pipeline as a block diagram (TikZ
+   in Beamer, Mermaid elsewhere) with the file/module names inside or
+   next to each box — not a text-only arrow chain
+   (`A $\rightarrow$ B $\rightarrow$ C`), which reads as a list, not an
+   architecture. A reviewer who asks "onde isso está implementado?"
+   needs a picture with the file names on screen, not just prose bullets.
 3. **Testing/benchmarks get their own explicit slide.** Statistical
    tests used (which, why, what they ruled out), validation stages
    (synthetic before real data), and — critically — an honest note on
@@ -42,7 +45,15 @@ narrative and defensibility of a presentation, not just its numbers.
 5. **Open with a roadmap slide** right after the title, stating what
    the presentation will cover and in what order, so the audience can
    track where they are.
-6. **Pre-empt hard questions before calling the deck done.** For every
+6. **A thesis/argument/contributions slide is mandatory**, placed after
+   the roadmap and before diving into individual projects. It must state
+   explicitly: the central thesis in one or two sentences, how each
+   project's result supports that thesis (not just what each project
+   did), and a numbered list of concrete contributions. Without this
+   slide, a multi-project deck reads as two unrelated demos with no
+   argument tying them together — a reviewer will ask "e daí, qual é o
+   argumento geral?" if it's missing.
+7. **Pre-empt hard questions before calling the deck done.** For every
    central result, ask: what would a skeptical advisor ask right after
    this slide? Common categories in this project's history:
    - *Scope/generalization*: does this hold for more robots/scenarios
@@ -92,11 +103,27 @@ not as a four-part list.
    support the conclusion they announce. Every number needs a unit and
    a comparison point — no bare numbers.
 2. **Conference-reviewer / anti-AI-pattern pass**: strip generative
-   filler — chains of "além disso"/"portanto", empty adjectives
-   ("robusto", "eficiente") with no evidence behind them, generic
-   bullet lists with no concrete numbers, inflated conclusions not
-   backed by the data shown. Every claim must survive being questioned
-   on the spot.
+   filler — chains of "além disso"/"portanto", the antithesis pattern
+   ("não X, mas Y" / "não X — Y"), em-dash used as the default
+   connector in place of varied punctuation (comma, period,
+   semicolon — count occurrences; more than roughly one per 10 lines,
+   or any sentence with two or more, is the density that reads as
+   AI-generated), empty adjectives ("robusto", "eficiente") with no
+   evidence behind them, generic bullet lists with no concrete numbers,
+   inflated conclusions not backed by the data shown. Every claim must
+   survive being questioned on the spot.
+
+## Page budget
+
+A deck covering an already-submitted project alongside an in-progress
+one should not give both equal page weight. Compress the finished
+project (fuse motivation+architecture, results+robustness-figures,
+etc. into denser multi-panel slides) and keep the in-progress project
+at full detail — the audience needs the most scrutiny where the work
+is still being shaped, not where it already shipped. If a deck exceeds
+roughly 20–25 slides for a two-project progress update, treat that as
+a signal to re-run this compression pass before considering it done,
+not just to add more slides.
 
 ## How to apply
 
