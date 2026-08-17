@@ -97,6 +97,27 @@ Câmera overhead $\rightarrow$ YOLOv8n $\rightarrow$ \texttt{/robot\_detections}
 \end{frame}
 
 % ============================================================
+\begin{frame}{LARS — Detecção YOLO: verdade vs. predição}
+\begin{columns}[T]
+\begin{column}{0.42\textwidth}
+\centering
+\includegraphics[height=3.1cm]{../paper_lars/en/fig_yolo_labels_crop.jpg}\\
+\scriptsize Verdade terrestre
+\vspace{0.1cm}
+
+\includegraphics[height=3.1cm]{../paper_lars/en/fig_yolo_pred_crop.jpg}\\
+\scriptsize Predição do detector
+\end{column}
+\begin{column}{0.58\textwidth}
+\small Anotação de verdade terrestre vs. predição do detector, mesma cena do conjunto de validação, um a três robôs simultaneamente visíveis.
+
+\vspace{0.2cm}
+\small \emph{Por que esta figura importa:} o mAP@0,5=0,995 e o erro de 4,7 cm do próximo slide são médias agregadas — não mostram \emph{como} o detector erra. Esta comparação qualitativa é a evidência de que o erro reportado é bem comportado (caixa acompanha o robô de forma consistente, mesmo com múltiplos robôs próximos) e não um artefato de outliers escondidos pela média.
+\end{column}
+\end{columns}
+\end{frame}
+
+% ============================================================
 \begin{frame}{LARS — Gêmeo digital: evolução da precisão}
 \begin{columns}
 \begin{column}{0.5\textwidth}
@@ -137,6 +158,18 @@ Detecções $<$15 cm & 100\% \\
 \end{frame}
 
 % ============================================================
+\begin{frame}{LARS — Curva de aprendizado}
+\centering
+\includegraphics[height=4.6cm]{../paper_lars/en/fig_learning.png}
+
+\vspace{0.15cm}
+\small Recompensa média por episódio ao longo de 500 mil timesteps, PPO(YOLO) e PPO(odom), com a linha de referência do guloso ($-16{,}7$).
+
+\vspace{0.1cm}
+\scriptsize \emph{Por que esta figura importa:} confirma, antes de qualquer teste estatístico, que o PPO de fato aprendeu ($\sim{-21}\to\sim{-17{,}7}$) — descarta a hipótese trivial de que o resultado negativo dos slides seguintes se deve a um agente que não treinou. Mostra também que \textbf{nenhuma das duas variantes cruza a linha do guloso}, e que PPO(odom) converge ligeiramente mais rápido que PPO(YOLO) — evidência direta de que o ruído do gêmeo digital (4,7 cm) é efeito de segunda ordem, não a causa do gap.
+\end{frame}
+
+% ============================================================
 \begin{frame}{LARS — Testes e protocolo experimental}
 \textbf{Treino:} PPO via Stable-Baselines3, hiperparâmetros \emph{padrão da biblioteca} (taxa de aprendizado $3\times10^{-4}$, $\gamma=0,99$, 8 ambientes paralelos, seed 42), 500 mil timesteps ($\sim$2h CPU).
 
@@ -174,6 +207,27 @@ Contra a hipótese, \textbf{o guloso vence} — tempo de resposta médio cerca d
 
 \vspace{0.2cm}
 \small \textbf{Enquadramento:} um resultado negativo bem caracterizado — testado e explicado — é mais informativo do que uma alegação positiva não testada. É essa caracterização, não a vitória do método proposto, que constitui a contribuição científica aqui.
+\end{frame}
+
+% ============================================================
+\begin{frame}{LARS — Distribuição completa do tempo de resposta}
+\centering
+\includegraphics[height=4.8cm]{../paper_lars/en/fig_boxplot.png}
+
+\vspace{0.15cm}
+\scriptsize \emph{Por que esta figura importa:} a tabela anterior mostra só médias e p95 — não revela \textbf{onde} na distribuição o PPO perde. Este boxplot mostra que a razão p95/média é comparável entre políticas ($\approx$1,47--1,56) e, de fato, ligeiramente menor para o PPO. Isso descarta uma explicação alternativa plausível (PPO pior só por causa de uma cauda de episódios catastróficos) — a desvantagem vem de um deslocamento de toda a distribuição de tempo de resposta, não de eventos raros.
+\end{frame}
+
+% ============================================================
+\begin{frame}{LARS — Robustez sob carga}
+\centering
+\includegraphics[height=4.4cm]{../paper_lars/en/fig_load.png}
+
+\vspace{0.1cm}
+\scriptsize Tempo de resposta em função do intervalo entre demandas (30s a 10s), nearest-free e PPO(YOLO): a desvantagem do PPO \textbf{encolhe} de +19,0\% (carga baixa) para +7,7\% (carga alta), embora o guloso permaneça mais rápido em todo o intervalo testado.
+
+\vspace{0.08cm}
+\scriptsize \emph{Por que esta figura importa:} responde a "o resultado é só válido na carga testada?" — o custo do PPO fica quase plano (397--400s) entre regimes, enquanto o do guloso cresce sob carga alta. Sustenta a leitura de que, se existe um ponto de cruzamento onde o PPO supera o guloso, ele está fora do intervalo testado (cargas mais altas ou frotas maiores), não dentro dele.
 \end{frame}
 
 % ============================================================
@@ -317,6 +371,18 @@ NIS & 1,982 & 2,0 (erro 0,9\%) \\
 \end{frame}
 
 % ============================================================
+\begin{frame}{LAFusion — Consistência do filtro ao longo do tempo}
+\centering
+\includegraphics[width=0.85\textwidth]{../lafusion/figures/lafusion_nees_nis.png}
+
+\vspace{0.2cm}
+\small NEES e NIS ao longo dos 2000 passos da validação Monte Carlo (30 sementes), com valores esperados teóricos (3,0 e 2,0) e faixa de confiança 95\%.
+
+\vspace{0.15cm}
+\small \emph{Por que esta figura importa:} a tabela do slide anterior mostra só a média agregada das 30 sementes — não mostra \textbf{se} o filtro permanece consistente ao longo de toda a trajetória ou só na média. Esta figura confirma que NEES/NIS oscilam em torno do valor esperado de forma estável do início ao fim da corrida, não só nos primeiros ou últimos passos — evidência de que a calibração do filtro (Q, R) não depende de um regime transitório específico antes de ser aplicada aos dados reais.
+\end{frame}
+
+% ============================================================
 \begin{frame}{LAFusion — Resultado principal}
 \begin{table}
 \small
@@ -336,6 +402,18 @@ Sob drift agressivo, o EKF reduz o erro médio em \textbf{+23,7\%} frente à odo
 
 \vspace{0.2cm}
 \small \emph{Por quê o ganho é negativo sob drift leve ($-5{,}3\%$):} o erro de detecção visual ($\approx$3–6 cm) ainda não é menor que o erro de odometria pouco corrompida nesse regime — fundir as duas não ajuda, e pode piorar levemente. É comportamento esperado de um filtro corretamente calibrado, não uma falha.
+\end{frame}
+
+% ============================================================
+\begin{frame}{LAFusion — Trajetória estimada}
+\centering
+\includegraphics[width=0.62\textwidth]{../lafusion/figures/lafusion_trajectory.png}
+
+\vspace{0.2cm}
+\small Cenário 2 (movimento reto) sob drift agressivo: EKF (azul) vs. odometria bruta com drift (laranja, tracejada) vs. verdade terrestre (preto).
+
+\vspace{0.15cm}
+\small \emph{Por que esta figura importa:} a tabela anterior reduz o ganho de +23,7\% a um único número agregado — esta figura mostra \textbf{o mecanismo} por trás dele: a odometria bruta visivelmente se afasta do caminho reto real, enquanto a estimativa do EKF permanece próxima da trajetória verdadeira. É a evidência qualitativa de que o filtro está corrigindo o drift, não só de que uma métrica agregada melhorou.
 \end{frame}
 
 % ============================================================
