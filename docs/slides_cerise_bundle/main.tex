@@ -113,7 +113,7 @@ Estado & Submetido no EasyChair em 06/08 & Prazo de submissão 04/09 \\
 \end{tikzpicture}
 \end{center}
 
-\texttt{rl/allocation\_env.py}: ambiente Gymnasium \emph{analítico} (sem ROS/Gazebo), \texttt{step()} é aritmética pura, treina 500k timesteps em minutos em vez de dias — não recebe dados da câmera. Em produção, \texttt{rl\_task\_allocator.py} carrega o modelo já treinado e consome \texttt{/robot\_detections} diretamente. \texttt{task\_allocator.py}: heurística baseline (linha tracejada).
+\texttt{rl/allocation\_env.py}: ambiente Gymnasium (biblioteca padrão para treino de RL: define \texttt{reset()}/\texttt{step(ação)} que qualquer algoritmo, aqui PPO, sabe treinar contra) \emph{analítico} (sem ROS/Gazebo) — \texttt{step()} é aritmética pura, treina 500k timesteps em minutos em vez de dias, e não recebe dados da câmera. Gymnasium suporta renderização gráfica nativamente (\texttt{render()}), mas este ambiente declara \texttt{render\_modes: []} — não a implementa, por isso a figura ao lado vem de um script à parte. Em produção, \texttt{rl\_task\_allocator.py} carrega o modelo já treinado e consome \texttt{/robot\_detections} diretamente. \texttt{task\_allocator.py}: heurística baseline (linha tracejada).
 \end{column}
 \begin{column}{0.44\textwidth}
 \centering
