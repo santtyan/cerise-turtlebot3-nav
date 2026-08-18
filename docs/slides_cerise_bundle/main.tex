@@ -134,6 +134,14 @@ Det. $<$15 cm & 100\% \\
 \end{frame}
 
 % ============================================================
+\begin{frame}{LARS — Por que PPO $\neq$ nearest-free na prática}
+\centering
+\includegraphics[width=0.85\textwidth]{figures/fig_allocation_compare.png}
+
+\small Mesmo estado (3 robôs, mesma demanda D), gerado a partir do \texttt{AllocationEnv} real: \emph{nearest\_free} sempre escolhe o robô livre mais próximo por construção (R2, esquerda); o PPO treinado pode escolher diferente (R1, direita) ao antecipar as 2 próximas demandas da fila — a divergência de decisão que a hipótese central do LARS testa.
+\end{frame}
+
+% ============================================================
 \begin{frame}{LARS — Formulação do MDP e protocolo experimental}
 \scriptsize
 \textbf{Estado (21D):} $3N+4+4\times2$ para $N=3$: posição/tempo-livre de cada robô, origem/destino da demanda atual e das \textbf{2 próximas} já visíveis na fila (a antecipação, sem a qual a política não teria como decidir \emph{``segurar''} um robô livre). \textbf{Ação:} escolha discreta de qual robô atende a demanda. \textbf{Recompensa:} $r = -(t_{espera}+t_{viagem})$, o \emph{tempo de resposta} completo — a formulação original penalizava só o tempo de viagem, um bug de causa-raiz corrigido antes do primeiro resultado válido.
