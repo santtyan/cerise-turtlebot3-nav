@@ -9,6 +9,17 @@ mas amostrando erro a cada leitura de odometria do robô-alvo (mesma lógica
 usada para descobrir o achado do erro contínuo, ver
 project_lafusion_ekf_continuous_error_finding na memória do projeto).
 
+Reporta também RPE (Relative Pose Error, drift entre passos consecutivos)
+além do erro absoluto por amostra já reportado — segue a convenção de
+Sturm et al. 2012 (TUM RGB-D benchmark), ATE/RPE, adotada pela ferramenta
+`evo` como padrão de facto em avaliação de trajetória SLAM/localização.
+O erro absoluto já reportado (sem alinhamento rígido prévio) equivale a
+ATE por amostra — sem alinhamento porque o referencial (mundo, via câmera
+fixa) já é compartilhado entre EKF/odometria/ground truth, ao contrário do
+caso típico de SLAM onde a trajetória estimada tem gauge livre. RPE mede
+o que ATE não mede: se o drift LOCAL entre passos consecutivos também
+piora sob baixa cobertura, ou só o erro acumulado global.
+
 Uso: python3 scripts/eval_ekf_continuous_error.py
 """
 
@@ -36,6 +47,8 @@ def run_continuous(bag_path, rng, drift_rate_divisor=20.0, target=TARGET_ROBOT):
     odom_drifted = {}
     task_count = {r: 0 for r in ROBOTS}
     errs_ekf, errs_odom = [], []
+    rpe_ekf, rpe_odom = [], []  # RPE: erro do delta de posição entre passos consecutivos (drift local)
+    prev_ekf_pos, prev_odom_pos, prev_gt_pos = None, None, None
     yolo_hits = 0
     total_odom_readings = 0
 
@@ -73,14 +86,33 @@ def run_continuous(bag_path, rng, drift_rate_divisor=20.0, target=TARGET_ROBOT):
 
         if robot_id == target:
             total_odom_readings += 1
-            err_ekf = math.hypot(filters[robot_id].state[0] - gt[robot_id][0],
-                                  filters[robot_id].state[1] - gt[robot_id][1])
-            err_odom = math.hypot(odom_drifted[robot_id][0] - gt[robot_id][0],
-                                   odom_drifted[robot_id][1] - gt[robot_id][1])
+            ekf_pos = np.array(filters[robot_id].state[:2])
+            odom_pos = np.array(odom_drifted[robot_id])
+            gt_pos = np.array(gt[robot_id])
+
+            err_ekf = math.hypot(ekf_pos[0] - gt_pos[0], ekf_pos[1] - gt_pos[1])
+            err_odom = math.hypot(odom_pos[0] - gt_pos[0], odom_pos[1] - gt_pos[1])
             errs_ekf.append(err_ekf)
             errs_odom.append(err_odom)
 
-    return np.array(errs_ekf), np.array(errs_odom), yolo_hits, total_odom_readings
+            # RPE (Sturm et al. 2012): erro do delta de posição entre este
+            # passo e o anterior — mede drift LOCAL (passo-a-passo), não o
+            # erro acumulado desde o início que ATE já captura.
+            if prev_ekf_pos is not None:
+                delta_ekf = ekf_pos - prev_ekf_pos
+                delta_odom = odom_pos - prev_odom_pos
+                delta_gt = gt_pos - prev_gt_pos
+                rpe_ekf.append(np.linalg.norm(delta_ekf - delta_gt))
+                rpe_odom.append(np.linalg.norm(delta_odom - delta_gt))
+            prev_ekf_pos, prev_odom_pos, prev_gt_pos = ekf_pos, odom_pos, gt_pos
+
+    return (np.array(errs_ekf), np.array(errs_odom),
+            np.array(rpe_ekf), np.array(rpe_odom),
+            yolo_hits, total_odom_readings)
+
+
+def _pct_change(odom_val, ekf_val):
+    return (odom_val - ekf_val) / odom_val * 100 if odom_val > 0 else 0
 
 
 def main():
@@ -88,32 +120,52 @@ def main():
     scenarios = ['cenario1_parado', 'cenario2_reto', 'cenario3_curva']
     titles = ['Stationary', 'Straight motion', 'Curve/occlusion']
 
-    all_ekf, all_odom = [], []
+    all_ekf, all_odom, all_rpe_ekf, all_rpe_odom = [], [], [], []
     for scenario, title in zip(scenarios, titles):
         rng = np.random.default_rng(42)
-        e_ekf, e_odom, hits, total = run_continuous(os.path.join(bags_dir, scenario), rng, 20.0)
+        e_ekf, e_odom, rpe_ekf, rpe_odom, hits, total = run_continuous(
+            os.path.join(bags_dir, scenario), rng, 20.0)
         coverage = hits / total * 100 if total else 0
         mean_ekf, mean_odom = e_ekf.mean(), e_odom.mean()
-        change = (mean_odom - mean_ekf) / mean_odom * 100 if mean_odom > 0 else 0
+        change = _pct_change(mean_odom, mean_ekf)
         rmse_ekf = np.sqrt(np.mean(e_ekf ** 2))
         rmse_odom = np.sqrt(np.mean(e_odom ** 2))
-        rmse_change = (rmse_odom - rmse_ekf) / rmse_odom * 100 if rmse_odom > 0 else 0
+        rmse_change = _pct_change(rmse_odom, rmse_ekf)
         print(f'{title}: n={total} coverage={coverage:.1f}% '
               f'mean EKF={mean_ekf:.4f}m odom={mean_odom:.4f}m change={change:.1f}% | '
               f'RMSE EKF={rmse_ekf:.4f}m odom={rmse_odom:.4f}m change={rmse_change:.1f}%')
+
+        rpe_mean_ekf, rpe_mean_odom = rpe_ekf.mean(), rpe_odom.mean()
+        rpe_change = _pct_change(rpe_mean_odom, rpe_mean_ekf)
+        print(f'  RPE (drift local passo-a-passo): n={len(rpe_ekf)} '
+              f'mean EKF={rpe_mean_ekf:.4f}m odom={rpe_mean_odom:.4f}m change={rpe_change:.1f}%')
+
         all_ekf.extend(e_ekf)
         all_odom.extend(e_odom)
+        all_rpe_ekf.extend(rpe_ekf)
+        all_rpe_odom.extend(rpe_odom)
 
     all_ekf = np.array(all_ekf)
     all_odom = np.array(all_odom)
     mean_ekf, mean_odom = all_ekf.mean(), all_odom.mean()
-    change = (mean_odom - mean_ekf) / mean_odom * 100
+    change = _pct_change(mean_odom, mean_ekf)
     rmse_ekf = np.sqrt(np.mean(all_ekf ** 2))
     rmse_odom = np.sqrt(np.mean(all_odom ** 2))
-    rmse_change = (rmse_odom - rmse_ekf) / rmse_odom * 100
-    print(f'\nAggregated: n={len(all_ekf)} '
+    rmse_change = _pct_change(rmse_odom, rmse_ekf)
+    print(f'\nAggregated (ATE, erro absoluto por amostra): n={len(all_ekf)} '
           f'mean EKF={mean_ekf:.4f}m odom={mean_odom:.4f}m change={change:.1f}% | '
           f'RMSE EKF={rmse_ekf:.4f}m odom={rmse_odom:.4f}m change={rmse_change:.1f}%')
+
+    all_rpe_ekf = np.array(all_rpe_ekf)
+    all_rpe_odom = np.array(all_rpe_odom)
+    rpe_mean_ekf, rpe_mean_odom = all_rpe_ekf.mean(), all_rpe_odom.mean()
+    rpe_change = _pct_change(rpe_mean_odom, rpe_mean_ekf)
+    rpe_rmse_ekf = np.sqrt(np.mean(all_rpe_ekf ** 2))
+    rpe_rmse_odom = np.sqrt(np.mean(all_rpe_odom ** 2))
+    rpe_rmse_change = _pct_change(rpe_rmse_odom, rpe_rmse_ekf)
+    print(f'Aggregated (RPE, drift local passo-a-passo): n={len(all_rpe_ekf)} '
+          f'mean EKF={rpe_mean_ekf:.4f}m odom={rpe_mean_odom:.4f}m change={rpe_change:.1f}% | '
+          f'RMSE EKF={rpe_rmse_ekf:.4f}m odom={rpe_rmse_odom:.4f}m change={rpe_rmse_change:.1f}%')
 
 
 if __name__ == '__main__':
