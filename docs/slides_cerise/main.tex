@@ -254,7 +254,7 @@ Cliff's $\delta$ vs. guloso & 0,703 & 0,636 \\
 \textbf{Módulos reais do código:}
 \begin{itemize}
 \item \texttt{ekf\_fusion\_node.py}: nó ROS2 de produção, com um EKF independente por robô — predição via odometria, correção via detecção YOLO.
-\item \texttt{association.py}: gating de Mahalanobis, compartilhado entre o EKF e o nó de avaliação offline.
+\item \texttt{association.py}: gating de Mahalanobis (distância que pondera o erro entre detecção e posição estimada pela covariância $P+R$ do filtro, em vez de metros brutos — evita que um robô ``roube'' a detecção de outro só por estar mais perto em linha reta), compartilhado entre o EKF e o nó de avaliação offline.
 \item \texttt{projection.py}: projeção pixel$\leftrightarrow$mundo usada dentro de \texttt{yolo\_detector.py}, com duas implementações (heurística por FOV e via intrínsecos calibrados) confirmadas geometricamente equivalentes.
 \end{itemize}
 
