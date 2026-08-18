@@ -349,6 +349,27 @@ Curve/occl. & 0.0\% & 0.178 / 0.178 & $-0.0\%$ & 0.205 / 0.205 & $-0.0\%$ \\
 \end{tabular}
 \end{table}
 
+The error reported above follows the Absolute Trajectory Error (ATE)
+convention of Sturm et al.~\cite{sturm2012tum} (adopted as the de facto
+protocol by the \texttt{evo} evaluation toolkit): per-sample position
+error against ground truth, without a rigid alignment step, which is
+appropriate here because the estimate, odometry, and ground truth already
+share a common world frame via the fixed overhead camera (unlike SLAM,
+where the estimated trajectory has a free gauge that must be aligned
+before comparison). ATE alone cannot distinguish whether the degradation
+comes from error accumulating over time or from each individual step
+already drifting more than odometry. We therefore also report Relative
+Pose Error (RPE)~\cite{sturm2012tum} — the error of the position delta
+between consecutive readings, which isolates local, step-to-step drift
+from the accumulated global error ATE captures. Aggregated across all
+three scenarios under aggressive drift, RPE is $4.2\%$ worse than raw
+odometry by mean error and $4.8\%$ worse by RMSE — the same sign as ATE,
+confirming local drift also degrades, but a substantially smaller
+magnitude than the $12.7\%$/$13.4\%$ ATE degradation. This indicates the
+reversal is driven mostly by error accumulating over time under sparse
+correction, not by each individual step drifting sharply worse than
+odometry alone.
+
 Two observations explain this reversal. First, the degradation scales
 inversely with YOLO coverage: Scenario 3 (0\% coverage — no successful
 visual correction over the entire $\sim$18\,s recording) shows a change
@@ -517,6 +538,12 @@ International Journal of Robotics Research \textbf{30}(8), 969--974
 Feng, D., Qi, Y., Zhong, S., Chen, Z., Chen, Q., Chen, H., Wu, J., Ma,
 J.: S3E: A multi-robot multimodal dataset for collaborative SLAM.
 arXiv:2210.13723 (2022)
+
+\bibitem{sturm2012tum}
+Sturm, J., Engelhard, N., Endres, F., Burgard, W., Cremers, D.: A
+benchmark for the evaluation of RGB-D SLAM systems. In: 2012 IEEE/RSJ
+International Conference on Intelligent Robots and Systems (IROS),
+pp. 573--580 (2012)
 
 \end{thebibliography}
 \end{document}
