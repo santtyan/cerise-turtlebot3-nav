@@ -58,13 +58,13 @@ Estado & Submetido no EasyChair em 06/08 & Prazo de submissão 04/09 \\
 % ============================================================
 \begin{frame}{Tese, argumentação e contribuições}
 \small
-\textbf{Tese central.} Rigor metodológico (teste causal, fundamentação teórica explícita) vale mais que uma alegação de vitória não testada, mesmo com resultado central negativo ou misto.
+\textbf{Tese central.} Rigor metodológico (teste causal, fundamentação teórica explícita) sustenta um resultado negativo ou misto melhor do que uma alegação de vitória sem teste.
 
 \vspace{0.2cm}
 \textbf{Como a tese se sustenta:}
 \begin{itemize}
 \item \textbf{LARS}: testa a hipótese de que RL supera a heurística, encontra o oposto, e usa um experimento causal (\emph{action masking}) para refutar a explicação mais plausível a priori.
-\item \textbf{LAFusion}: não reporta só o ganho de +23,7\% pontual; mede também a degradação de $-$12,7\% contínua sob baixa taxa de detecção do YOLO e explica a reversão com teoria prévia de filtragem sob observação intermitente.
+\item \textbf{LAFusion}: mede o ganho de +23,7\% pontual e a degradação de $-$12,7\% contínua sob baixa taxa de detecção do YOLO, e explica a reversão com teoria prévia de filtragem sob observação intermitente.
 \end{itemize}
 
 \vspace{0.2cm}
@@ -112,7 +112,7 @@ Estado & Submetido no EasyChair em 06/08 & Prazo de submissão 04/09 \\
 \end{center}
 
 \vspace{0.15cm}
-\scriptsize\texttt{rl/allocation\_env.py}: ambiente Gymnasium (biblioteca padrão para treino de RL: define \texttt{reset()}/\texttt{step(ação)} que qualquer algoritmo, aqui PPO, sabe treinar contra) \emph{analítico} (sem ROS/Gazebo) — \texttt{step()} é aritmética pura, treina 500k timesteps em minutos em vez de dias, e não recebe dados da câmera. Gymnasium suporta renderização gráfica nativamente (\texttt{render()}), mas este ambiente declara \texttt{render\_modes: []} — não a implementa, por isso a figura de comparação (próximo slide) vem de um script à parte. Em produção, \texttt{rl\_task\_allocator.py} carrega o modelo já treinado e consome \texttt{/robot\_detections} diretamente. \texttt{task\_allocator.py}: heurística baseline (linha tracejada).
+\scriptsize\texttt{rl/allocation\_env.py}: ambiente Gymnasium (biblioteca padrão para treino de RL, define \texttt{reset()}/\texttt{step(ação)} que qualquer algoritmo, aqui PPO, sabe treinar contra), \emph{analítico} (sem ROS/Gazebo): \texttt{step()} é aritmética pura, treina 500k timesteps em minutos em vez de dias, e trabalha sem dado de câmera. Gymnasium suporta renderização gráfica nativamente (\texttt{render()}); este ambiente declara \texttt{render\_modes: []} vazio, então a figura de comparação (próximo slide) vem de um script à parte. Em produção, \texttt{rl\_task\_allocator.py} carrega o modelo já treinado e consome \texttt{/robot\_detections} diretamente. \texttt{task\_allocator.py}: heurística baseline (linha tracejada).
 \end{frame}
 
 % ============================================================
@@ -132,7 +132,7 @@ Det. $<$15 cm & 100\% \\
 \end{tabular}
 
 \vspace{0.3cm}
-\small É o erro de 4,7 cm (rastreio contínuo) que alimenta os experimentos seguintes, não o estático — salto vem de motion blur e latência, não de limitação do detector. Verdade/predição bem comportadas mesmo com múltiplos robôs próximos (evidência qualitativa contra outliers escondidos pela média).
+\small O erro dinâmico de 4,7 cm (rastreio contínuo), não o estático, é o que alimenta os experimentos seguintes: o salto entre os dois vem de motion blur e latência, e o detector em si mede bem em ambos os regimes. Verdade/predição bem comportadas mesmo com múltiplos robôs próximos (evidência qualitativa contra outliers escondidos pela média).
 \end{column}
 \end{columns}
 \end{frame}
@@ -148,14 +148,14 @@ Det. $<$15 cm & 100\% \\
 % ============================================================
 \begin{frame}{LARS — Formulação do MDP e protocolo experimental}
 \scriptsize
-\textbf{Estado (21D):} $3N+4+4\times2$ para $N=3$: posição/tempo-livre de cada robô, origem/destino da demanda atual e das \textbf{2 próximas} já visíveis na fila (a antecipação, sem a qual a política não teria como decidir \emph{``segurar''} um robô livre). \textbf{Ação:} escolha discreta de qual robô atende a demanda. \textbf{Recompensa:} $r = -(t_{espera}+t_{viagem})$, o \emph{tempo de resposta} completo — a formulação original penalizava só o tempo de viagem, um bug de causa-raiz corrigido antes do primeiro resultado válido.
+\textbf{Estado (21D):} $3N+4+4\times2$ para $N=3$: posição/tempo-livre de cada robô, origem/destino da demanda atual e das \textbf{2 próximas} já visíveis na fila (a antecipação permite à política decidir \emph{``segurar''} um robô livre para uma demanda melhor). \textbf{Ação:} escolha discreta de qual robô atende a demanda. \textbf{Recompensa:} $r = -(t_{espera}+t_{viagem})$, o \emph{tempo de resposta} completo — a formulação original penalizava só o tempo de viagem, um bug de causa-raiz corrigido antes do primeiro resultado válido.
 
 \vspace{0.2cm}
-\textbf{Treino:} PPO/Stable-Baselines3, hiperparâmetros padrão (lr $3\times10^{-4}$, $\gamma=0,99$, 8 envs paralelos, seed 42), 500k timesteps ($\sim$2h CPU). Defaults isolam o efeito da fonte de observação e do masking, não buscam o teto de desempenho do PPO.
+\textbf{Treino:} PPO/Stable-Baselines3, hiperparâmetros padrão (lr $3\times10^{-4}$, $\gamma=0,99$, 8 envs paralelos, seed 42), 500k timesteps ($\sim$2h CPU). Defaults isolam o efeito da fonte de observação e do masking; buscar o teto de desempenho do PPO fica para trabalho futuro.
 
 \textbf{Estatística:} 1000 episódios pareados, Wilcoxon signed-rank, Cliff's $\delta$, IC 95\% bootstrap. Pareamento é necessário porque a variância entre sementes já produz diferenças significativas em RL profundo.
 
-\textbf{Robustez:} 6 regimes de carga (30s–10s), 500 episódios/ponto. \textbf{Por quê PPO e não SAC/DQN:} o experimento isola fonte de observação e masking sobre um único algoritmo, não faz benchmark de arquiteturas; PPO é o padrão de fato em SB3 com suporte nativo a masking (MaskablePPO), necessário para o teste causal a seguir.
+\textbf{Robustez:} 6 regimes de carga (30s–10s), 500 episódios/ponto. \textbf{Por quê PPO e não SAC/DQN:} o experimento isola fonte de observação e masking sobre um único algoritmo; PPO é o padrão de fato em SB3, com suporte nativo a masking (MaskablePPO) necessário para o teste causal a seguir.
 \end{frame}
 
 % ============================================================
@@ -174,7 +174,7 @@ PPO (odom) & 19,83 s & 29,37 s & \textbf{0,135} \\
 \end{tabular}
 
 \vspace{0.15cm}
-Carga moderada, 1000 ep. pareados, Wilcoxon $p<0{,}001$. \textbf{O guloso vence}: tempo de resposta $\sim$\textbf{12\% pior} para o PPO. A proximidade entre PPO(YOLO) e PPO(odom) indica que o ruído do gêmeo digital é efeito de segunda ordem, não a causa.
+Carga moderada, 1000 ep. pareados, Wilcoxon $p<0{,}001$. \textbf{O guloso vence}: tempo de resposta $\sim$\textbf{12\% pior} para o PPO. A proximidade entre PPO(YOLO) e PPO(odom) indica que o ruído do gêmeo digital é só efeito de segunda ordem; a causa principal está em outro lugar.
 
 \vspace{0.1cm}
 \includegraphics[width=\textwidth]{figures/fig_load.png}
@@ -184,12 +184,12 @@ Carga moderada, 1000 ep. pareados, Wilcoxon $p<0{,}001$. \textbf{O guloso vence}
 \includegraphics[width=0.85\textwidth]{figures/fig_boxplot.png}
 
 \vspace{0.1cm}
-\scriptsize O boxplot mostra p95/média comparável entre políticas ($\approx$1,47--1,56): a desvantagem vem de deslocamento de toda a distribuição, não de cauda catastrófica. Sob carga, o gap encolhe de +19,0\% para +7,7\%, mas o guloso permanece mais rápido em todo o intervalo testado.
+\scriptsize O boxplot mostra p95/média comparável entre políticas ($\approx$1,47--1,56): a desvantagem vem de um deslocamento de toda a distribuição, não de uma cauda catastrófica isolada. Sob carga, o gap encolhe de +19,0\% para +7,7\%, mas o guloso permanece mais rápido em todo o intervalo testado.
 \end{column}
 \end{columns}
 
 \vspace{0.1cm}
-\scriptsize \textbf{Enquadramento:} um resultado negativo testado e explicado é mais informativo que uma alegação positiva não testada. É essa caracterização, não a vitória do método, que constitui a contribuição aqui.
+\scriptsize \textbf{Enquadramento:} a contribuição aqui é essa caracterização — um resultado negativo testado e explicado é mais informativo que uma alegação positiva sem teste.
 \end{frame}
 
 % ============================================================
@@ -213,9 +213,9 @@ Cliff's $\delta$ vs. guloso & 0,703 & 0,636 \\
 \textbf{Hipótese causal refutada:} o masking zera a taxa de ação inválida, mas o gap melhora só $\sim$1 ponto percentual. O peso volta para o espaço de ação pequeno e o orçamento de treino.
 
 \vspace{0.15cm}
-\textbf{Limitações assumidas:} (1) hiperparâmetros padrão do PPO, não o teto do RL para o problema; (2) $N=3$, não extrapolar para frotas grandes; (3) sem validação em hardware físico; (4) 500k timesteps sem convergência. Todas são alvo direto de trabalho futuro.
+\textbf{Limitações assumidas:} (1) hiperparâmetros padrão do PPO, aquém do teto possível do RL para o problema; (2) resultados válidos para $N=3$, sem extrapolar para frotas grandes; (3) sem validação em hardware físico; (4) 500k timesteps sem convergência. Todas são alvo direto de trabalho futuro.
 
-\textbf{Revisão de literatura:} 330 estudos triados (Scopus, IEEE, arXiv, ACM) $\rightarrow$ \textbf{117 aceitos / 213 rejeitados}. \textbf{Submissão:} 06/08/2026, EasyChair; aceite previsto \textbf{15/09/2026}. Título já declara o método (\emph{Causal Diagnosis...}), não uma alegação de vitória do RL.
+\textbf{Revisão de literatura:} 330 estudos triados (Scopus, IEEE, arXiv, ACM) $\rightarrow$ \textbf{117 aceitos / 213 rejeitados}. \textbf{Submissão:} 06/08/2026, EasyChair; aceite previsto \textbf{15/09/2026}. Título já declara o método (\emph{Causal Diagnosis...}), sem alegar vitória do RL.
 
 \vspace{0.1cm}
 \textbf{Por que um segundo paper:} o LARS usa a posição do YOLO como estado observado, mas nunca pergunta o que fazer quando a detecção não está disponível. Em produção, um \textbf{fallback discreto} descarta informação (sem correção parcial, sem propagação formal de incerteza). \textbf{A pergunta do LAFusion:} como se comporta um EKF que funde as duas fontes probabilisticamente quando a taxa de detecção do YOLO é baixa?
@@ -258,27 +258,27 @@ Cliff's $\delta$ vs. guloso & 0,703 & 0,636 \\
 \end{itemize}
 
 \vspace{0.3cm}
-\textbf{Por que EKF, e não UKF ou filtro de partículas:} o modelo de observação da câmera é quase linear (projeção pinhole numa cena essencialmente planar). O ganho de um UKF, que mira não-linearidade do modelo de observação, seria marginal aqui. O problema central deste trabalho é a \emph{taxa} de observação, não a forma do modelo, e nenhuma dessas alternativas resolve isso (detalhado dois slides à frente).
+\textbf{Por que EKF, e não UKF ou filtro de partículas:} o modelo de observação da câmera é quase linear (projeção pinhole numa cena essencialmente planar). O ganho de um UKF, que mira não-linearidade do modelo de observação, seria marginal aqui. O problema central deste trabalho é a \emph{taxa} de observação, não a forma do modelo — nenhuma dessas alternativas resolve isso (detalhado dois slides à frente).
 \end{frame}
 
 % ============================================================
 \begin{frame}{LAFusion — Design do EKF}
-\textbf{Estado:} $x_k = [p_x, p_y, \theta]^\top$ por robô. A predição integra o \emph{delta} de leituras consecutivas de odometria sobre o estado atual — não o valor absoluto, que descartaria correções visuais anteriores.
+\textbf{Estado:} $x_k = [p_x, p_y, \theta]^\top$ por robô. A predição integra o \emph{delta} de leituras consecutivas de odometria sobre o estado atual, preservando correções visuais anteriores (usar o valor absoluto da odometria as descartaria a cada ciclo).
 
 \vspace{0.3cm}
 \textbf{Hiperparâmetros e sua origem:}
 \begin{itemize}
 \item $Q = \text{diag}(0{,}5,\ 0{,}5,\ 0{,}25)$ — calibrado empiricamente contra dados reais (varredura de $10^{-6}$ a $1{,}0$; ganho cresce monotonicamente até saturar em $Q\geq0{,}5$).
-\item Teto de covariância $\text{clip}(P, -\infty, 0{,}05)$: \emph{sem} ele, $P$ crescia sem limite em intervalos longos sem correção (traço observado $\approx$85 contra esperado $\approx$0,5), quebrando o gating de Mahalanobis ao alargar a região de aceitação até um robô \emph{``roubar''} a detecção do vizinho.
-\item Limiar de gating $d^2 \leq 9{,}21$ — valor padrão do teste $\chi^2$ com 2 graus de liberdade a 99\% de confiança, não um número ajustado ad hoc.
-\item Atualização de $P$ via \textbf{forma de Joseph} $(I-KH)P(I-KH)^\top + KRK^\top$, e gating com $S=P+R$ (não só $P$) — duas correções de rigor numérico aplicadas nesta sessão (17/08/2026), sem alterar nenhum resultado já publicado.
+\item Teto de covariância $\text{clip}(P, -\infty, 0{,}05)$: sem ele, $P$ crescia sem limite em intervalos longos sem correção (traço observado $\approx$85 contra esperado $\approx$0,5), quebrando o gating de Mahalanobis ao alargar a região de aceitação até um robô \emph{``roubar''} a detecção do vizinho.
+\item Limiar de gating $d^2 \leq 9{,}21$ — valor padrão do teste $\chi^2$ com 2 graus de liberdade a 99\% de confiança.
+\item Atualização de $P$ via \textbf{forma de Joseph} $(I-KH)P(I-KH)^\top + KRK^\top$, e gating com $S=P+R$ — duas correções de rigor numérico aplicadas nesta sessão (17/08/2026), que reproduzem exatamente os mesmos resultados já publicados.
 \end{itemize}
 
 \vspace{0.15cm}
-\scriptsize \emph{Por quê o teto de covariância existe:} mantém a associação estável, não torna a estimativa de estado mais precisa durante o intervalo sem correção. É uma distinção central para o achado do próximo bloco de slides.
+\scriptsize \emph{Por quê o teto de covariância existe:} mantém a associação estável; a estimativa de estado em si segue imprecisa durante o intervalo sem correção. É uma distinção central para o achado do próximo bloco de slides.
 
 \vspace{0.05cm}
-\scriptsize \emph{Por quê o clip, e não um fading factor (AFKF) mais correto teoricamente:} testamos — sem teto, ou com teto generoso o bastante para diferir do clip, $P$ cresce o bastante para o próprio gating de Mahalanobis aceitar detecções erradas, o mesmo modo de falha que o clip evita. Ganho no drift agressivo caiu de $+23{,}7\%$ (clip) para $-16{,}5\%$ (fading sem teto). O clip é empiricamente melhor aqui, não só mais simples.
+\scriptsize \emph{Por quê o clip, e não um fading factor (AFKF) mais correto teoricamente:} testamos — sem teto, ou com teto generoso o bastante para diferir do clip, $P$ cresce o bastante para o próprio gating de Mahalanobis aceitar detecções erradas, o mesmo modo de falha que o clip evita. Ganho no drift agressivo caiu de $+23{,}7\%$ (clip) para $-16{,}5\%$ (fading sem teto): o clip vence empiricamente, mesmo sendo a solução mais simples.
 \end{frame}
 
 % ============================================================
@@ -306,7 +306,7 @@ NIS & 1,982 & 2,0 (0,9\%) \\
 \centering
 \includegraphics[width=\textwidth]{figures/lafusion_nees_nis.png}
 
-\scriptsize NEES/NIS ao longo dos 2000 passos, com valor esperado teórico e faixa de confiança 95\%: a tabela ao lado é só a média agregada das 30 sementes; esta figura confirma que a consistência do filtro se mantém estável do início ao fim da corrida, não só num regime transitório, antes de aplicá-lo aos dados reais.
+\scriptsize NEES/NIS ao longo dos 2000 passos, com valor esperado teórico e faixa de confiança 95\%: a tabela ao lado é só a média agregada das 30 sementes; esta figura confirma que a consistência do filtro se mantém estável do início ao fim da corrida (e não apenas num regime transitório inicial), antes de aplicá-lo aos dados reais.
 \end{column}
 \end{columns}
 
@@ -338,13 +338,13 @@ Agressivo & 0,128/0,168 & \textbf{+23,7\%} & 0,163/0,195 & \textbf{+16,7\%} \\
 \small Sob drift agressivo, o EKF reduz o erro médio em \textbf{+23,7\%} frente à odometria pura.
 
 \vspace{0.15cm}
-\scriptsize\emph{Por quê o ganho é negativo sob drift leve ($-5{,}3\%$):} o erro de detecção visual ($\approx$3–6 cm) ainda não é menor que o erro de odometria pouco corrompida nesse regime. Fundir as duas não ajuda, e pode piorar levemente. É comportamento esperado de um filtro corretamente calibrado, não uma falha.
+\scriptsize\emph{Por quê o ganho é negativo sob drift leve ($-5{,}3\%$):} o erro de detecção visual ($\approx$3–6 cm) ainda é maior que o erro de odometria pouco corrompida nesse regime, então fundir as duas pode até piorar levemente o resultado. É comportamento esperado de um filtro corretamente calibrado.
 \end{column}
 \begin{column}{0.44\textwidth}
 \centering
 \includegraphics[width=\textwidth]{figures/lafusion_trajectory.png}
 
-\tiny Cenário 2 (reto) sob drift agressivo: EKF (azul) vs. odometria com drift (laranja, tracejada) vs. verdade terrestre (preto). A tabela reduz o ganho a um número agregado; aqui está o mecanismo — a odometria se afasta do caminho real enquanto o EKF permanece próximo, evidência qualitativa de que o filtro corrige o drift, não só que a métrica agregada melhorou.
+\tiny Cenário 2 (reto) sob drift agressivo: EKF (azul) vs. odometria com drift (laranja, tracejada) vs. verdade terrestre (preto). A tabela reduz o ganho a um número agregado; aqui está o mecanismo, com a odometria se afastando do caminho real enquanto o EKF permanece próximo — evidência qualitativa de que o filtro corrige o drift de fato, além de melhorar a métrica agregada.
 \end{column}
 \end{columns}
 \end{frame}
@@ -366,13 +366,13 @@ Curva/oclusão & 0,0\% & 0,178 / 0,178 & $-0,0\%$ & 0,205 / 0,205 & $-0,0\%$ \\
 \caption{\small Erro medido a CADA leitura de odometria, não só nos instantes de correção ($n=1607$, Wilcoxon $p<0{,}001$).}
 \end{table}
 
-Medido continuamente, o mesmo filtro é \textbf{12,7\% pior} que odometria pura: sinal invertido em relação ao slide anterior. No cenário de 0\% de cobertura, a mudança é exatamente 0,0\%: sem correções, a predição do EKF degenera matematicamente para integração pura de delta-odometria, idêntica à baseline não fundida. É confirmação, não coincidência.
+Medido continuamente, o mesmo filtro é \textbf{12,7\% pior} que odometria pura: sinal invertido em relação ao slide anterior. No cenário de 0\% de cobertura, a mudança é exatamente 0,0\% — sem correções, a predição do EKF degenera matematicamente para integração pura de delta-odometria, idêntica à baseline não fundida, o que confirma o mecanismo em vez de ser coincidência.
 
 \vspace{0.15cm}
-\scriptsize\textbf{ATE vs. RPE (Sturm et al. 2012):} o erro acima é ATE (erro absoluto por amostra). RPE (drift entre passos consecutivos) também piora, mas bem menos ($-4,2\%/-4,8\%$ agregado) — a reversão vem sobretudo de erro \emph{acumulando} sob correção esparsa, não de cada passo individual driftando muito mais que a odometria.
+\scriptsize\textbf{ATE vs. RPE (Sturm et al. 2012):} o erro acima é ATE (erro absoluto por amostra). RPE (drift entre passos consecutivos) também piora, mas bem menos ($-4,2\%/-4,8\%$ agregado): a reversão vem sobretudo de erro \emph{acumulando} sob correção esparsa; cada passo individual, isoladamente, drifta pouco mais que a odometria.
 
 \vspace{0.1cm}
-\small \textbf{Isso não invalida a contribuição:} reportar as duas métricas, em vez de só a favorável, é o ponto do trabalho, não uma admissão de fracasso.
+\small \textbf{O ponto do trabalho é justamente reportar as duas métricas}, em vez de só a favorável.
 \end{frame}
 
 % ============================================================
@@ -383,10 +383,10 @@ Medido continuamente, o mesmo filtro é \textbf{12,7\% pior} que odometria pura:
 \end{column}
 \begin{column}{0.58\textwidth}
 \scriptsize
-A covariância satura no teto quase imediatamente após qualquer intervalo sem correção (Sinopoli et al. 2004: divergência de covariância abaixo de uma taxa crítica de observação; nosso cenário de 0\% de cobertura está no caso-limite $p\to0$). O teto evita crescimento ilimitado, mas capa a \emph{estimativa de incerteza do próprio filtro}, não torna a estimativa de estado mais precisa: o filtro fica excessivamente confiante na predição só-odometria. Dissanayake et al. (2001) provam convergência do EKF-SLAM sob observação \emph{densa}; nossa câmera viola essa premissa por construção (0–28\% de cobertura).
+A covariância satura no teto quase imediatamente após qualquer intervalo sem correção (Sinopoli et al. 2004: divergência de covariância abaixo de uma taxa crítica de observação; nosso cenário de 0\% de cobertura está no caso-limite $p\to0$). O teto evita crescimento ilimitado, mas limita só a \emph{estimativa de incerteza do próprio filtro}: o filtro fica excessivamente confiante na predição só-odometria, enquanto a estimativa de estado em si segue imprecisa. Dissanayake et al. (2001) provam convergência do EKF-SLAM sob observação \emph{densa}; nossa câmera viola essa premissa por construção (0–28\% de cobertura).
 
 \vspace{0.2cm}
-\textbf{Por que UKF/partículas/IMM não resolvem:} um filtro de partículas degenera para propagação pura sem verossimilhança para reponderar; um UKF mira não-linearidade do modelo de observação, não a taxa de observação; um IMM ainda precisa de alguma observação para ponderar modos concorrentes. A causa raiz é a topologia do sensor (viewpoint único sujeito a oclusão), não a escolha do filtro.
+\textbf{Por que UKF/partículas/IMM não resolvem:} um filtro de partículas degenera para propagação pura sem verossimilhança para reponderar; um UKF mira não-linearidade do modelo de observação, que não é o problema aqui; um IMM ainda precisa de alguma observação para ponderar modos concorrentes. A causa raiz é a topologia do sensor (viewpoint único sujeito a oclusão) — a escolha do filtro é secundária.
 \end{column}
 \end{columns}
 \end{frame}
@@ -441,7 +441,7 @@ A covariância satura no teto quase imediatamente após qualquer intervalo sem c
 \hrule
 \vspace{0.15cm}
 \scriptsize
-\textbf{Conclusão — LARS:} resultado negativo testado e explicado causalmente; o \emph{action masking} refuta a explicação mais plausível a priori, redirecionando o diagnóstico para o espaço de ação pequeno e o orçamento de treino. \textbf{LAFusion:} ganho real nos instantes de correção (+23,7\%), mas mensuravelmente pior que odometria pura avaliado continuamente ($-$12,7\%), reversão explicada pela teoria estabelecida de filtragem sob observação intermitente, não uma falha de implementação. Os dois trabalhos compartilham o mesmo padrão: reportar o resultado completo, favorável ou não, e fundamentá-lo.
+\textbf{Conclusão — LARS:} resultado negativo testado e explicado causalmente; o \emph{action masking} refuta a explicação mais plausível a priori, redirecionando o diagnóstico para o espaço de ação pequeno e o orçamento de treino. \textbf{LAFusion:} ganho real nos instantes de correção (+23,7\%), mensuravelmente pior que odometria pura avaliado continuamente ($-$12,7\%); a teoria estabelecida de filtragem sob observação intermitente explica essa reversão como comportamento esperado do filtro, não como falha de implementação. Os dois trabalhos compartilham o mesmo padrão: reportar o resultado completo, favorável ou não, e fundamentá-lo.
 \end{frame}
 
 \end{document}
