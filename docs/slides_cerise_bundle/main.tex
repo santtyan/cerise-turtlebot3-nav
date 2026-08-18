@@ -74,52 +74,56 @@ Estado & Submetido no EasyChair em 06/08 & Prazo de submissão 04/09 \\
 % ============================================================
 \section{LARS 2026}
 
-\begin{frame}{LARS — Motivação, arquitetura e gêmeo digital}
-\begin{columns}[T]
-\begin{column}{0.56\textwidth}
-\tiny
+\begin{frame}{LARS — Motivação e arquitetura}
+\small
 \textbf{O problema.} MRTA (\emph{Multi-Robot Task Allocation}: decidir qual robô de uma frota atende cada demanda que chega) é resolvida na prática por heurísticas gulosas (robô livre mais próximo, míopes a demandas futuras). \textbf{Hipótese:} PPO com antecipação de duas demandas futuras supera a heurística \emph{nearest-free} em tempo de resposta.
 
-\vspace{0.15cm}
+\vspace{0.2cm}
 \begin{center}
 \begin{tikzpicture}[
-  scale=0.6, every node/.style={scale=0.6},
-  node distance=3mm,
-  box/.style={draw, rounded corners, align=center, minimum height=0.9cm, font=\tiny, fill=blue!6},
-  lbl/.style={font=\tiny, align=left},
+  scale=0.85, every node/.style={scale=0.85},
+  node distance=4mm,
+  box/.style={draw, rounded corners, align=center, minimum height=1.0cm, font=\scriptsize, fill=blue!6},
+  lbl/.style={font=\scriptsize, align=left},
   arr/.style={-{Stealth[length=2mm]}, thick}
 ]
 % Treino offline (sem ROS/Gazebo)
-\node[lbl, anchor=west] (trlbl) at (0,1.0) {\textbf{Treino} (offline, sem câmera):};
-\node[box, minimum width=1.9cm, below=2mm of trlbl.west, anchor=north west] (env) {AllocationEnv\\\texttt{rl/allocation\_env.py}};
-\node[box, minimum width=1.7cm, right=of env] (train) {Treina PPO\\(Stable-Baselines3)};
-\node[box, minimum width=1.6cm, right=of train] (model) {Modelo\\salvo (.zip)};
+\node[lbl, anchor=west] (trlbl) at (0,1.2) {\textbf{Treino} (offline, sem câmera):};
+\node[box, minimum width=2.4cm, below=2mm of trlbl.west, anchor=north west] (env) {AllocationEnv\\\texttt{rl/allocation\_env.py}};
+\node[box, minimum width=2.1cm, right=of env] (train) {Treina PPO\\(Stable-Baselines3)};
+\node[box, minimum width=2.0cm, right=of train] (model) {Modelo\\salvo (.zip)};
 \draw[arr] (env) -- (train);
 \draw[arr] (train) -- (model);
 
 % Inferência em produção
-\node[lbl, anchor=west] (inflbl) at (0,-1.1) {\textbf{Inferência} (produção, ROS2):};
-\node[box, minimum width=1.6cm, below=2mm of inflbl.west, anchor=north west] (cam) {Câmera overhead};
-\node[box, minimum width=1.9cm, right=of cam] (yolo) {YOLOv8n\\\texttt{yolo\_detector.py}\\\texttt{/robot\_detections}};
-\node[box, minimum width=1.9cm, right=of yolo] (ppo) {\texttt{rl\_task\_allocator.py}\\(carrega o modelo)};
-\node[box, minimum width=1.7cm, right=of ppo] (nav2) {Nav2 $\rightarrow$ TurtleBot3};
+\node[lbl, anchor=west] (inflbl) at (0,-1.3) {\textbf{Inferência} (produção, ROS2):};
+\node[box, minimum width=2.1cm, below=2mm of inflbl.west, anchor=north west] (cam) {Câmera overhead};
+\node[box, minimum width=2.4cm, right=of cam] (yolo) {YOLOv8n\\\texttt{yolo\_detector.py}\\\texttt{/robot\_detections}};
+\node[box, minimum width=2.4cm, right=of yolo] (ppo) {\texttt{rl\_task\_allocator.py}\\(carrega o modelo)};
+\node[box, minimum width=2.2cm, right=of ppo] (nav2) {Nav2 $\rightarrow$ TurtleBot3};
 \draw[arr] (cam) -- (yolo);
 \draw[arr] (yolo) -- (ppo);
 \draw[arr] (ppo) -- (nav2);
 \draw[arr, dotted] (model) -- (ppo);
-\node[box, minimum width=1.9cm, below=5mm of ppo, fill=orange!8] (baseline) {\texttt{task\_allocator.py} (nearest-free)};
+\node[box, minimum width=2.4cm, below=6mm of ppo, fill=orange!8] (baseline) {\texttt{task\_allocator.py} (nearest-free)};
 \draw[arr, dashed] (yolo.south) -- (baseline.north west);
 \draw[arr, dashed] (baseline) -- (ppo.south);
 \end{tikzpicture}
 \end{center}
 
-\texttt{rl/allocation\_env.py}: ambiente Gymnasium (biblioteca padrão para treino de RL: define \texttt{reset()}/\texttt{step(ação)} que qualquer algoritmo, aqui PPO, sabe treinar contra) \emph{analítico} (sem ROS/Gazebo) — \texttt{step()} é aritmética pura, treina 500k timesteps em minutos em vez de dias, e não recebe dados da câmera. Gymnasium suporta renderização gráfica nativamente (\texttt{render()}), mas este ambiente declara \texttt{render\_modes: []} — não a implementa, por isso a figura ao lado vem de um script à parte. Em produção, \texttt{rl\_task\_allocator.py} carrega o modelo já treinado e consome \texttt{/robot\_detections} diretamente. \texttt{task\_allocator.py}: heurística baseline (linha tracejada).
-\end{column}
-\begin{column}{0.44\textwidth}
-\centering
-\includegraphics[width=0.75\textwidth]{figures/fig_digitaltwin.png}
+\vspace{0.15cm}
+\scriptsize\texttt{rl/allocation\_env.py}: ambiente Gymnasium (biblioteca padrão para treino de RL: define \texttt{reset()}/\texttt{step(ação)} que qualquer algoritmo, aqui PPO, sabe treinar contra) \emph{analítico} (sem ROS/Gazebo) — \texttt{step()} é aritmética pura, treina 500k timesteps em minutos em vez de dias, e não recebe dados da câmera. Gymnasium suporta renderização gráfica nativamente (\texttt{render()}), mas este ambiente declara \texttt{render\_modes: []} — não a implementa, por isso a figura de comparação (próximo slide) vem de um script à parte. Em produção, \texttt{rl\_task\_allocator.py} carrega o modelo já treinado e consome \texttt{/robot\_detections} diretamente. \texttt{task\_allocator.py}: heurística baseline (linha tracejada).
+\end{frame}
 
-\tiny
+% ============================================================
+\begin{frame}{LARS — Gêmeo digital: erro de localização câmera+YOLO}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\centering
+\includegraphics[width=\textwidth]{figures/fig_digitaltwin.png}
+\end{column}
+\begin{column}{0.5\textwidth}
+\small
 \begin{tabular}{ll}
 mAP@0.5 & \textbf{0,995} \\
 Erro estático & 1,24 cm \\
@@ -127,8 +131,8 @@ Erro dinâmico & \textbf{4,7 cm} \\
 Det. $<$15 cm & 100\% \\
 \end{tabular}
 
-\vspace{0.1cm}
-É o erro de 4,7 cm (rastreio contínuo) que alimenta os experimentos seguintes, não o estático — salto vem de motion blur e latência, não de limitação do detector. Verdade/predição bem comportadas mesmo com múltiplos robôs próximos (evidência qualitativa contra outliers escondidos pela média).
+\vspace{0.3cm}
+\small É o erro de 4,7 cm (rastreio contínuo) que alimenta os experimentos seguintes, não o estático — salto vem de motion blur e latência, não de limitação do detector. Verdade/predição bem comportadas mesmo com múltiplos robôs próximos (evidência qualitativa contra outliers escondidos pela média).
 \end{column}
 \end{columns}
 \end{frame}
