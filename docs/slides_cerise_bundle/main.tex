@@ -83,27 +83,37 @@ Estado & Submetido no EasyChair em 06/08 & Prazo de submissão 04/09 \\
 \vspace{0.15cm}
 \begin{center}
 \begin{tikzpicture}[
-  scale=0.62, every node/.style={scale=0.62},
+  scale=0.6, every node/.style={scale=0.6},
   node distance=3mm,
-  box/.style={draw, rounded corners, align=center, minimum height=0.95cm, font=\tiny, fill=blue!6},
+  box/.style={draw, rounded corners, align=center, minimum height=0.9cm, font=\tiny, fill=blue!6},
+  lbl/.style={font=\tiny, align=left},
   arr/.style={-{Stealth[length=2mm]}, thick}
 ]
-\node[box, minimum width=1.7cm] (cam) {Câmera overhead};
+% Treino offline (sem ROS/Gazebo)
+\node[lbl, anchor=west] (trlbl) at (0,1.0) {\textbf{Treino} (offline, sem câmera):};
+\node[box, minimum width=1.9cm, below=2mm of trlbl.west, anchor=north west] (env) {AllocationEnv\\\texttt{rl/allocation\_env.py}};
+\node[box, minimum width=1.7cm, right=of env] (train) {Treina PPO\\(Stable-Baselines3)};
+\node[box, minimum width=1.6cm, right=of train] (model) {Modelo\\salvo (.zip)};
+\draw[arr] (env) -- (train);
+\draw[arr] (train) -- (model);
+
+% Inferência em produção
+\node[lbl, anchor=west] (inflbl) at (0,-1.1) {\textbf{Inferência} (produção, ROS2):};
+\node[box, minimum width=1.6cm, below=2mm of inflbl.west, anchor=north west] (cam) {Câmera overhead};
 \node[box, minimum width=1.9cm, right=of cam] (yolo) {YOLOv8n\\\texttt{yolo\_detector.py}\\\texttt{/robot\_detections}};
-\node[box, minimum width=1.9cm, right=of yolo] (env) {AllocationEnv\\\texttt{rl/allocation\_env.py}};
-\node[box, minimum width=1.9cm, right=of env] (ppo) {Política PPO\\\texttt{rl\_task\_allocator.py}};
+\node[box, minimum width=1.9cm, right=of yolo] (ppo) {\texttt{rl\_task\_allocator.py}\\(carrega o modelo)};
 \node[box, minimum width=1.7cm, right=of ppo] (nav2) {Nav2 $\rightarrow$ TurtleBot3};
 \draw[arr] (cam) -- (yolo);
-\draw[arr] (yolo) -- (env);
-\draw[arr] (env) -- (ppo);
+\draw[arr] (yolo) -- (ppo);
 \draw[arr] (ppo) -- (nav2);
-\node[box, minimum width=1.9cm, below=5mm of env, fill=orange!8] (baseline) {\texttt{task\_allocator.py} (nearest-free)};
+\draw[arr, dotted] (model) -- (ppo);
+\node[box, minimum width=1.9cm, below=5mm of ppo, fill=orange!8] (baseline) {\texttt{task\_allocator.py} (nearest-free)};
 \draw[arr, dashed] (yolo.south) -- (baseline.north west);
 \draw[arr, dashed] (baseline) -- (ppo.south);
 \end{tikzpicture}
 \end{center}
 
-\texttt{rl/allocation\_env.py}: ambiente Gymnasium \emph{analítico} (sem ROS/Gazebo), \texttt{step()} é aritmética pura, treina 500k timesteps em minutos em vez de dias. \texttt{task\_allocator.py}: heurística baseline (linha tracejada).
+\texttt{rl/allocation\_env.py}: ambiente Gymnasium \emph{analítico} (sem ROS/Gazebo), \texttt{step()} é aritmética pura, treina 500k timesteps em minutos em vez de dias — não recebe dados da câmera. Em produção, \texttt{rl\_task\_allocator.py} carrega o modelo já treinado e consome \texttt{/robot\_detections} diretamente. \texttt{task\_allocator.py}: heurística baseline (linha tracejada).
 \end{column}
 \begin{column}{0.44\textwidth}
 \centering
