@@ -99,7 +99,12 @@ class RobotEKF:
         S = H @ self.cov @ H.T + R
         K = self.cov @ H.T @ np.linalg.inv(S)
         self.state = self.state + K @ innovation
-        self.cov = (np.eye(3) - K @ H) @ self.cov
+        # Forma de Joseph: preserva simetria e positividade semi-definida de
+        # P mesmo sob erro numérico, ao contrário da forma simplificada
+        # (I-KH)P, que só é exata para K ótimo sem arredondamento (Bar-Shalom
+        # et al., Estimation with Applications to Tracking and Navigation).
+        I_KH = np.eye(3) - K @ H
+        self.cov = I_KH @ self.cov @ I_KH.T + K @ R @ K.T
 
 
 class EkfFusionNode(Node):
@@ -152,8 +157,9 @@ class EkfFusionNode(Node):
             return
 
         cov_by_robot = {r: f.cov for r, f in self.filters.items() if r in self._odom_raw}
+        r_by_detection = [r_from_confidence(det_conf.get(d, 0.5)) for d in self._detections]
         assignments, _unmatched = mahalanobis_gate(
-            self._odom_raw, cov_by_robot, self._detections)
+            self._odom_raw, cov_by_robot, self._detections, r_by_detection=r_by_detection)
 
         for robot_id, det_xy in assignments.items():
             conf = det_conf.get(det_xy, 0.5)  # fallback conservador se chave não bater

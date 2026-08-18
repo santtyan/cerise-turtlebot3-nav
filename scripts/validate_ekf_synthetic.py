@@ -55,7 +55,10 @@ def correct(state, cov, measurement, R):
     K = cov @ H.T @ np.linalg.inv(S)
 
     state_new = state + K @ innovation
-    cov_new = (np.eye(3) - K @ H) @ cov
+    # Forma de Joseph: preserva simetria e PSD de cov sob erro numérico
+    # (mesma correção aplicada em ekf_fusion_node.py, 17/08/2026).
+    I_KH = np.eye(3) - K @ H
+    cov_new = I_KH @ cov @ I_KH.T + K @ R @ K.T
     return state_new, cov_new, innovation, S
 
 

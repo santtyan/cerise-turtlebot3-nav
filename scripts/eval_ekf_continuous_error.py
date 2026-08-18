@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.join(_REPO, 'scripts'))
 
 from cerise_nav.association import mahalanobis_gate  # noqa: E402
 from eval_ekf_vs_baseline import (POS_DRIFT_ODOM, ROBOTS, RobotEKF,  # noqa: E402
-                                   quaternion_to_yaw, read_bag)
+                                   quaternion_to_yaw, r_from_confidence, read_bag)
 
 TARGET_ROBOT = 'robot1'
 
@@ -46,7 +46,9 @@ def run_continuous(bag_path, rng, drift_rate_divisor=20.0, target=TARGET_ROBOT):
             if not odom_drifted or not filters:
                 continue
             cov_by_robot = {r: f.cov for r, f in filters.items() if r in odom_drifted}
-            assignments, _ = mahalanobis_gate(odom_drifted, cov_by_robot, detections)
+            r_by_detection = [r_from_confidence(det_conf.get(d, 0.5)) for d in detections]
+            assignments, _ = mahalanobis_gate(odom_drifted, cov_by_robot, detections,
+                                               r_by_detection=r_by_detection)
             for robot_id, det_xy in assignments.items():
                 conf = det_conf.get(det_xy, 0.5)
                 filters[robot_id].correct(det_xy, conf)

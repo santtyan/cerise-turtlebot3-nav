@@ -41,12 +41,21 @@ def greedy_nearest_neighbor(reference: dict, detections: list, max_dist: float):
 
 
 def mahalanobis_gate(reference: dict, cov_by_robot: dict, detections: list,
-                      gate_threshold: float = 9.21):
+                      gate_threshold: float = 9.21, r_by_detection: list = None):
     """Associa detecções a robôs por distância de Mahalanobis, usando a
-    covariância do filtro de cada robô (mais rigoroso que distância euclidiana
-    pura — ver Altendorfer & Wirkert 2015, referência #4 do plano LAFusion,
-    que documenta o limite conhecido do gating puramente euclidiano/Mahalanobis
-    ingênuo: covariâncias grandes podem "roubar" associações incorretas).
+    covariância de inovação S = P + R de cada par robô-detecção (mais
+    rigoroso que distância euclidiana pura — ver Altendorfer & Wirkert 2015,
+    referência #4 do plano LAFusion, que documenta o limite conhecido do
+    gating puramente euclidiano/Mahalanobis ingênuo: covariâncias grandes
+    podem "roubar" associações incorretas).
+
+    S = P + R (não só P) é a covariância de inovação padrão para gating
+    (Bar-Shalom et al.; mesma fórmula usada em correct_with_detection) — sem
+    somar R, o gate ignora a incerteza da própria detecção (confiança do
+    YOLO), ficando artificialmente estreito quando R é grande.
+    `r_by_detection`, se informado, é uma lista de matrizes R (2x2) alinhada
+    a `detections`; se None, mantém o comportamento anterior (S=P) para
+    compatibilidade com chamadores que não têm R disponível.
 
     gate_threshold=9.21 é o valor padrão do teste qui-quadrado com 2 graus de
     liberdade e 99% de confiança (posição x,y) — reprovar associações além
@@ -61,14 +70,16 @@ def mahalanobis_gate(reference: dict, cov_by_robot: dict, detections: list,
     for robot_id, (rx, ry) in reference.items():
         cov = cov_by_robot[robot_id]
         cov_pos = np.asarray(cov)[:2, :2]
-        cov_inv = np.linalg.inv(cov_pos)
 
         best_d, best_j = float('inf'), -1
         for j, (dx, dy) in enumerate(detections):
             if j in used:
                 continue
+            R = r_by_detection[j] if r_by_detection is not None else 0.0
+            S = cov_pos + R
+            S_inv = np.linalg.inv(S)
             err = np.array([dx - rx, dy - ry])
-            d = float(err @ cov_inv @ err)
+            d = float(err @ S_inv @ err)
             if d < best_d:
                 best_d, best_j = d, j
 
