@@ -232,29 +232,30 @@ Cliff's $\delta$ vs. guloso & 0,703 & 0,636 \\
   box/.style={draw, rounded corners, align=center, minimum height=1.1cm, font=\tiny, fill=blue!6},
   arr/.style={-{Stealth[length=2mm]}, thick}
 ]
-\node[box, minimum width=1.9cm] (cam) {Câmera\\overhead fixa};
-\node[box, minimum width=1.7cm, right=of cam] (yolo) {YOLOv8n};
+\node[box, minimum width=1.7cm] (cam) {Câmera\\overhead fixa};
+\node[box, minimum width=2.6cm, right=of cam, fill=blue!12] (yolo) {\texttt{yolo\_detector.py}\\YOLOv8n + \texttt{projection.py}\\\texttt{/robot\_detections}};
 \node[box, minimum width=2.3cm, right=of yolo] (assoc) {Associação\\\texttt{association.py}\\(gating Mahalanobis)};
 \node[box, minimum width=2.0cm, right=of assoc] (ekf) {EKF por robô\\\texttt{ekf\_fusion\_node.py}};
 \node[box, minimum width=1.7cm, right=of ekf] (pose) {Pose\\fundida};
-\node[box, minimum width=2.0cm, above=7mm of assoc, fill=orange!8] (proj) {\texttt{projection.py}\\(pixel$\leftrightarrow$mundo)};
-\node[box, minimum width=1.7cm, below=7mm of ekf, fill=green!8] (odom) {Odometria\\(predição)};
+\node[box, minimum width=1.7cm, below=9mm of ekf, fill=green!8] (odom) {Odometria\\(predição)};
 \draw[arr] (cam) -- (yolo);
 \draw[arr] (yolo) -- (assoc);
 \draw[arr] (assoc) -- (ekf);
 \draw[arr] (ekf) -- (pose);
-\draw[arr, dashed] (proj) -- (assoc);
-\draw[arr, dashed] (yolo) -- (proj);
 \draw[arr] (odom) -- (ekf);
+\draw[arr, dashed] (odom.east) -| (pose.south);
 \end{tikzpicture}
 \end{center}
+
+\vspace{0.1cm}
+\scriptsize\texttt{yolo\_detector.py} já converte pixel$\to$mundo (via \texttt{projection.py}) antes de publicar \texttt{/robot\_detections} — \texttt{association.py} e \texttt{ekf\_fusion\_node.py} nunca importam \texttt{projection.py} diretamente. A seta tracejada mostra que o EKF publica pose a cada leitura de odometria (predição), não só após uma correção YOLO bem-sucedida.
 
 \vspace{0.15cm}
 \textbf{Módulos reais do código:}
 \begin{itemize}
 \item \texttt{ekf\_fusion\_node.py}: nó ROS2 de produção, com um EKF independente por robô — predição via odometria, correção via detecção YOLO.
 \item \texttt{association.py}: gating de Mahalanobis, compartilhado entre o EKF e o nó de avaliação offline.
-\item \texttt{projection.py}: projeção pixel$\leftrightarrow$mundo, com duas implementações (heurística por FOV e via intrínsecos calibrados) confirmadas geometricamente equivalentes.
+\item \texttt{projection.py}: projeção pixel$\leftrightarrow$mundo usada dentro de \texttt{yolo\_detector.py}, com duas implementações (heurística por FOV e via intrínsecos calibrados) confirmadas geometricamente equivalentes.
 \end{itemize}
 
 \vspace{0.3cm}
