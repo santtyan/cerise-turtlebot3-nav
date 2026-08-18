@@ -43,10 +43,10 @@
 \toprule
  & \textbf{LARS 2026} & \textbf{LAFusion 2026} \\
 \midrule
-Pergunta & RL supera a heurística gulosa na alocação de tarefas? & EKF melhora a localização sob cobertura visual esparsa? \\
+Pergunta & RL supera a heurística gulosa na alocação de tarefas? & Como o EKF se comporta quando a taxa de detecção do YOLO é baixa? \\
 Método & PPO (Stable-Baselines3) & Extended Kalman Filter por robô \\
 Plataforma & 3 TurtleBot3, ROS2/Gazebo & 3 TurtleBot3, ROS2/Gazebo \\
-Estado & Submetido no EasyChair em 06/08 & 8 páginas prontas, prazo 04/09 \\
+Estado & Submetido no EasyChair em 06/08 & Prazo de submissão 04/09 \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -64,11 +64,11 @@ Estado & Submetido no EasyChair em 06/08 & 8 páginas prontas, prazo 04/09 \\
 \textbf{Como a tese se sustenta:}
 \begin{itemize}
 \item \textbf{LARS}: testa a hipótese de que RL supera a heurística, encontra o oposto, e usa um experimento causal (\emph{action masking}) para refutar a explicação mais plausível a priori.
-\item \textbf{LAFusion}: não reporta só o ganho de +23,7\% pontual; mede também a degradação de $-$12,7\% contínua e explica a reversão com teoria prévia de filtragem sob observação intermitente.
+\item \textbf{LAFusion}: não reporta só o ganho de +23,7\% pontual; mede também a degradação de $-$12,7\% contínua sob baixa taxa de detecção do YOLO e explica a reversão com teoria prévia de filtragem sob observação intermitente.
 \end{itemize}
 
 \vspace{0.2cm}
-\textbf{Contribuições:} (1) gêmeo digital câmera+YOLO validado (mAP@0,5=0,995, erro 4,7 cm), base comum aos dois trabalhos; (2) diagnóstico causal de por que PPO perde em MRTA com $N=3$, isolando o espaço de ação pequeno como fator dominante; (3) caracterização dupla do EKF sob cobertura esparsa, com a reversão de sinal explicada por teoria prévia, não apenas observada.
+\textbf{Contribuições:} (1) gêmeo digital câmera+YOLO validado (mAP@0,5=0,995, erro 4,7 cm), base comum aos dois trabalhos; (2) diagnóstico causal de por que PPO perde em MRTA com $N=3$, isolando o espaço de ação pequeno como fator dominante; (3) caracterização dupla do EKF sob baixa taxa de detecção do YOLO, com a reversão de sinal explicada por teoria prévia, não apenas observada.
 \end{frame}
 
 % ============================================================
@@ -196,7 +196,7 @@ Cliff's $\delta$ vs. guloso & 0,703 & 0,636 \\
 \textbf{Revisão de literatura:} 330 estudos triados (Scopus, IEEE, arXiv, ACM) $\rightarrow$ \textbf{117 aceitos / 213 rejeitados}. \textbf{Submissão:} 06/08/2026, EasyChair; aceite previsto \textbf{15/09/2026}. Título já declara o método (\emph{Causal Diagnosis...}), não uma alegação de vitória do RL.
 
 \vspace{0.1cm}
-\textbf{Por que um segundo paper:} o LARS usa a posição do YOLO como estado observado, mas nunca pergunta o que fazer quando a detecção não está disponível. Em produção, um \textbf{fallback discreto} descarta informação (sem correção parcial, sem propagação formal de incerteza). \textbf{A pergunta do LAFusion:} um EKF que funde as duas fontes probabilisticamente melhora a localização sob cobertura visual esparsa?
+\textbf{Por que um segundo paper:} o LARS usa a posição do YOLO como estado observado, mas nunca pergunta o que fazer quando a detecção não está disponível. Em produção, um \textbf{fallback discreto} descarta informação (sem correção parcial, sem propagação formal de incerteza). \textbf{A pergunta do LAFusion:} como se comporta um EKF que funde as duas fontes probabilisticamente quando a taxa de detecção do YOLO é baixa?
 \end{frame}
 
 % ============================================================
@@ -249,83 +249,82 @@ Cliff's $\delta$ vs. guloso & 0,703 & 0,636 \\
 \item $Q = \text{diag}(0{,}5,\ 0{,}5,\ 0{,}25)$ — calibrado empiricamente contra dados reais (varredura de $10^{-6}$ a $1{,}0$; ganho cresce monotonicamente até saturar em $Q\geq0{,}5$).
 \item Teto de covariância $\text{clip}(P, -\infty, 0{,}05)$: \emph{sem} ele, $P$ crescia sem limite em intervalos longos sem correção (traço observado $\approx$85 contra esperado $\approx$0,5), quebrando o gating de Mahalanobis ao alargar a região de aceitação até um robô \emph{``roubar''} a detecção do vizinho.
 \item Limiar de gating $d^2 \leq 9{,}21$ — valor padrão do teste $\chi^2$ com 2 graus de liberdade a 99\% de confiança, não um número ajustado ad hoc.
+\item Atualização de $P$ via \textbf{forma de Joseph} $(I-KH)P(I-KH)^\top + KRK^\top$, e gating com $S=P+R$ (não só $P$) — duas correções de rigor numérico aplicadas nesta sessão (17/08/2026), sem alterar nenhum resultado já publicado.
 \end{itemize}
 
 \vspace{0.15cm}
 \scriptsize \emph{Por quê o teto de covariância existe:} mantém a associação estável, não torna a estimativa de estado mais precisa durante o intervalo sem correção. É uma distinção central para o achado do próximo bloco de slides.
 
 \vspace{0.05cm}
-\scriptsize \emph{Por quê $Q$ fixo e não adaptativo desde o início:} um teto fixo é a versão mais simples a validar primeiro; $Q$ escalado pelo tempo desde a última correção é mais correto teoricamente, mas adiciona um hiperparâmetro a calibrar. Por isso entra como próximo passo, não como ponto de partida.
+\scriptsize \emph{Por quê o clip, e não um fading factor (AFKF) mais correto teoricamente:} testamos — sem teto, ou com teto generoso o bastante para diferir do clip, $P$ cresce o bastante para o próprio gating de Mahalanobis aceitar detecções erradas, o mesmo modo de falha que o clip evita. Ganho no drift agressivo caiu de $+23{,}7\%$ (clip) para $-16{,}5\%$ (fading sem teto). O clip é empiricamente melhor aqui, não só mais simples.
 \end{frame}
 
 % ============================================================
 \begin{frame}{LAFusion — Testes e validação}
+\begin{columns}[T]
+\begin{column}{0.42\textwidth}
+\small
 \textbf{Validação sintética (antes de qualquer dado real):} Monte Carlo com 30 sementes, 2000 passos cada, contra trajetória sintética com verdade terrestre conhecida.
 
 \vspace{0.15cm}
+\scriptsize
 \begin{tabular}{lcc}
 \toprule
-\textbf{Estatística} & \textbf{Obtido} & \textbf{Esperado} \\
+\textbf{Estat.} & \textbf{Obtido} & \textbf{Esperado} \\
 \midrule
-NEES & 2,955 & 3,0 (erro 1,5\%) \\
-NIS & 1,982 & 2,0 (erro 0,9\%) \\
+NEES & 2,955 & 3,0 (1,5\%) \\
+NIS & 1,982 & 2,0 (0,9\%) \\
 \bottomrule
 \end{tabular}
 
 \vspace{0.15cm}
-\small \emph{Por quê validar sinteticamente antes do dado real:} isola bugs de implementação de problemas de dado. Um filtro mal calibrado contra dados sintéticos jamais seria confiável contra dados reais mais ruidosos.
-
-\vspace{0.2cm}
-\textbf{\normalsize Dados reais:} 3 cenários gravados no Gazebo (parado, reto, curva/oclusão), 3 robôs, sincronização de timestamp verificada (nenhum gap $>$500ms).
-
-\vspace{0.2cm}
-\small\textbf{Sobre benchmarks públicos:} não avaliamos contra UTIAS MRCLAM ou S3E. Ambos assumem sensor embarcado em cada robô (range-bearing ou LiDAR/estéreo/IMU onboard); nosso cenário usa câmera externa fixa, mais próximo de um ambiente instrumentado do que de SLAM cooperativo. Não há, até onde sabemos, dataset público que combine câmera externa fixa, YOLO e múltiplos robôs terrestres como alvos, o que motiva o dataset próprio liberado com este trabalho.
-\end{frame}
-
-% ============================================================
-\begin{frame}{LAFusion — Consistência do filtro ao longo do tempo}
+\small\emph{Por quê validar sinteticamente antes do dado real:} isola bugs de implementação de problemas de dado — um filtro mal calibrado contra dados sintéticos jamais seria confiável contra dados reais mais ruidosos.
+\end{column}
+\begin{column}{0.58\textwidth}
 \centering
-\includegraphics[width=0.85\textwidth]{figures/lafusion_nees_nis.png}
+\includegraphics[width=\textwidth]{figures/lafusion_nees_nis.png}
+
+\scriptsize NEES/NIS ao longo dos 2000 passos, com valor esperado teórico e faixa de confiança 95\%: a tabela ao lado é só a média agregada das 30 sementes; esta figura confirma que a consistência do filtro se mantém estável do início ao fim da corrida, não só num regime transitório, antes de aplicá-lo aos dados reais.
+\end{column}
+\end{columns}
 
 \vspace{0.2cm}
-\small NEES e NIS ao longo dos 2000 passos da validação Monte Carlo (30 sementes), com valores esperados teóricos (3,0 e 2,0) e faixa de confiança 95\%.
+\small\textbf{Dados reais:} 3 cenários gravados no Gazebo (parado, reto, curva/oclusão), 3 robôs, sincronização de timestamp verificada (nenhum gap $>$500ms).
 
 \vspace{0.15cm}
-\small \emph{Por que esta figura importa:} a tabela do slide anterior mostra só a média agregada das 30 sementes, e não mostra \textbf{se} o filtro permanece consistente ao longo de toda a trajetória ou só na média. Esta figura confirma que NEES/NIS oscilam em torno do valor esperado de forma estável do início ao fim da corrida, não só nos primeiros ou últimos passos: evidência de que a calibração do filtro (Q, R) não depende de um regime transitório específico antes de ser aplicada aos dados reais.
+\scriptsize\textbf{Sobre benchmarks públicos:} não avaliamos contra UTIAS MRCLAM ou S3E — ambos assumem sensor embarcado em cada robô (range-bearing ou LiDAR/estéreo/IMU onboard); nosso cenário usa câmera externa fixa, mais próximo de um ambiente instrumentado do que de SLAM cooperativo. Não há, até onde sabemos, dataset público que combine câmera externa fixa, YOLO e múltiplos robôs terrestres como alvos, o que motiva o dataset próprio liberado com este trabalho.
 \end{frame}
 
 % ============================================================
 \begin{frame}{LAFusion — Resultado principal}
+\begin{columns}[T]
+\begin{column}{0.56\textwidth}
 \begin{table}
-\small
+\scriptsize
 \begin{tabular}{lcccc}
 \toprule
-\textbf{Regime de drift} & \textbf{Média EKF/Odom} & \textbf{$\Delta$ média} & \textbf{RMSE EKF/Odom} & \textbf{$\Delta$ RMSE} \\
+\textbf{Drift} & \textbf{Méd. EKF/Odom} & \textbf{$\Delta$} & \textbf{RMSE EKF/Odom} & \textbf{$\Delta$RMSE} \\
 \midrule
-Nenhum (odom = GT) & 0,036 / 0,000 & N/A & 0,052 / 0,000 & N/A \\
-Leve & 0,053 / 0,050 & $-5,3\%$ & 0,068 / 0,066 & $-2,1\%$ \\
-Agressivo & 0,128 / 0,168 & \textbf{+23,7\%} & 0,163 / 0,195 & \textbf{+16,7\%} \\
+Nenhum & 0,036/0,000 & N/A & 0,052/0,000 & N/A \\
+Leve & 0,053/0,050 & $-5,3\%$ & 0,068/0,066 & $-2,1\%$ \\
+Agressivo & 0,128/0,168 & \textbf{+23,7\%} & 0,163/0,195 & \textbf{+16,7\%} \\
 \bottomrule
 \end{tabular}
-\caption{\small Erro de posição (m) nos instantes de correção YOLO, agregado em 3 cenários ($n=1323$). Wilcoxon $p<0{,}001$ sob drift agressivo.}
+\caption{\scriptsize Erro de posição (m) nos instantes de correção YOLO, 3 cenários ($n=1323$). Wilcoxon $p<0{,}001$ sob drift agressivo.}
 \end{table}
 
-Sob drift agressivo, o EKF reduz o erro médio em \textbf{+23,7\%} frente à odometria pura.
-
-\vspace{0.2cm}
-\small \emph{Por quê o ganho é negativo sob drift leve ($-5{,}3\%$):} o erro de detecção visual ($\approx$3–6 cm) ainda não é menor que o erro de odometria pouco corrompida nesse regime. Fundir as duas não ajuda, e pode piorar levemente. É comportamento esperado de um filtro corretamente calibrado, não uma falha.
-\end{frame}
-
-% ============================================================
-\begin{frame}{LAFusion — Trajetória estimada}
-\centering
-\includegraphics[width=0.62\textwidth]{figures/lafusion_trajectory.png}
-
-\vspace{0.2cm}
-\small Cenário 2 (movimento reto) sob drift agressivo: EKF (azul) vs. odometria bruta com drift (laranja, tracejada) vs. verdade terrestre (preto).
+\small Sob drift agressivo, o EKF reduz o erro médio em \textbf{+23,7\%} frente à odometria pura.
 
 \vspace{0.15cm}
-\small \emph{Por que esta figura importa:} a tabela anterior reduz o ganho de +23,7\% a um único número agregado. Esta figura mostra \textbf{o mecanismo} por trás dele: a odometria bruta visivelmente se afasta do caminho reto real, enquanto a estimativa do EKF permanece próxima da trajetória verdadeira. É a evidência qualitativa de que o filtro está corrigindo o drift, não só de que uma métrica agregada melhorou.
+\scriptsize\emph{Por quê o ganho é negativo sob drift leve ($-5{,}3\%$):} o erro de detecção visual ($\approx$3–6 cm) ainda não é menor que o erro de odometria pouco corrompida nesse regime. Fundir as duas não ajuda, e pode piorar levemente. É comportamento esperado de um filtro corretamente calibrado, não uma falha.
+\end{column}
+\begin{column}{0.44\textwidth}
+\centering
+\includegraphics[width=\textwidth]{figures/lafusion_trajectory.png}
+
+\tiny Cenário 2 (reto) sob drift agressivo: EKF (azul) vs. odometria com drift (laranja, tracejada) vs. verdade terrestre (preto). A tabela reduz o ganho a um número agregado; aqui está o mecanismo — a odometria se afasta do caminho real enquanto o EKF permanece próximo, evidência qualitativa de que o filtro corrige o drift, não só que a métrica agregada melhorou.
+\end{column}
+\end{columns}
 \end{frame}
 
 % ============================================================
