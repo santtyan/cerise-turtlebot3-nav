@@ -70,6 +70,38 @@ narrative and defensibility of a presentation, not just its numbers.
    (same non-negotiable rule as `verify-citation`: never force an
    unverified claim to close a gap).
 
+8. **Verify every diagram and figure against the actual code/data, not
+   just the prose.** Found repeatedly in this project's history
+   (2026-08-17 session): a TikZ architecture diagram drew training and
+   inference as one linear chain when the code has them as two
+   separate paths (`AllocationEnv` never touches the camera); another
+   diagram placed `projection.py` between the wrong two pipeline
+   stages because no one traced the actual imports
+   (`grep "from cerise_nav.projection"` showed it's used inside
+   `yolo_detector.py`, not `association.py`). A reused paper figure
+   showed 6 policies (including one, `masked`, not yet introduced to
+   the audience) while the adjacent table only reported 3 — figures
+   get silently out of sync with the slide's current scope when
+   copy-pasted from the paper. Concretely: for every box/arrow in a
+   diagram, `grep` the module it names to confirm what actually calls
+   what; for every reused figure, check its data/legend against the
+   text and table right next to it, not just against the paper it
+   came from.
+9. **Any state/number that can go stale must be re-checked before
+   calling the deck done**, not trusted from when it was first
+   written. Page counts, submission deadlines, and "N pages written"
+   claims drift as the underlying document changes — this session's
+   deck said "8 páginas escritas" after the paper had already grown to
+   10 pages three commits earlier. Re-run `pdfinfo main.pdf | grep
+   Pages` on every referenced document as part of the final pass, not
+   only when a page count is first written.
+10. **Terms of art get defined at first mention, not assumed.**
+   Mahalanobis distance, ATE/RPE, Gymnasium's `render()` contract —
+   this session's user repeatedly asked "o que é X?" for terms already
+   used 3-4 times earlier in the deck. A one-clause parenthetical at
+   the first occurrence (not a full glossary) is enough; skipping it
+   forces the audience to interrupt or silently disengage.
+
 ## The four Aristotelian causes as a justification frame
 
 For each design decision worth explaining, check it against all four

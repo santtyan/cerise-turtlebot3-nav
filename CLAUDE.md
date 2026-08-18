@@ -39,7 +39,9 @@ All three eras consume the same live sensor pipeline: overhead camera (`world_wi
 
 ### Known duplication: the EKF math exists in three places
 
-`ekf_fusion_node.py` (ROS2 production node), `scripts/eval_ekf_vs_baseline.py` / `scripts/eval_ekf_continuous_error.py` (offline evaluation against recorded bags), and `scripts/validate_ekf_synthetic.py` (synthetic Monte Carlo validation) each reimplement the same predict/correct math independently, with different method names. This is a known, accepted limitation (not something to "fix" opportunistically) — a correction to one needs to be manually mirrored in the others, or the offline evaluation numbers in the paper silently stop matching production behavior.
+`ekf_fusion_node.py` (ROS2 production node), `scripts/eval_ekf_vs_baseline.py` / `scripts/eval_ekf_continuous_error.py` (offline evaluation against recorded bags), and `scripts/validate_ekf_synthetic.py` (synthetic Monte Carlo validation) each reimplement the same predict/correct math independently, with different method names. This is a known, accepted limitation (not something to "fix" opportunistically) — a correction to one needs to be manually mirrored in the others, or the offline evaluation numbers in the paper silently stop matching production behavior. As of 2026-08-17, all three use the numerically-stable **Joseph form** covariance update and **Mahalanobis gating with `S=P+R`** (not just `P`) — both changes reproduce the paper's published numbers exactly (bit-for-bit), so they're safe defaults, not experimental.
+
+**Covariance ceiling is empirically justified, not just simple.** The `COV_CAP=0.05` clip (`ekf_fusion_node.py`) is mathematically inelegant (breaks PSD structure) — a fading factor (AFKF, scaling `Q` instead of clipping `P`) is the textbook-correct alternative. It was implemented and tested (`eval_ekf_vs_baseline.py:COV_UPDATE_MODE`, still present as an experimental flag) and **loses empirically**: without a cap, or with one loose enough to differ from the clip, `P` grows enough that Mahalanobis gating starts accepting the wrong robot's detection — the exact failure mode the clip exists to prevent. Gain under aggressive drift dropped from +23.7% (clip) to −16.5% (fading, no cap). Don't re-litigate this without new data.
 
 ### Where validation actually lives
 
@@ -48,6 +50,7 @@ There's no single test command that proves a pipeline change is correct — vali
 - `scripts/eval_ekf_vs_baseline.py` / `eval_ekf_continuous_error.py` — EKF vs. odometry-only vs. ground truth, against the three recorded scenarios in `bags/` (stationary/straight/curve, MCAP format — requires `ros-humble-rosbag2-storage-mcap`, not installed by default on Humble).
 - `scripts/stats_tests.py` — shared statistical toolkit (paired Wilcoxon signed-rank, Cliff's delta, bootstrap CI) used by both papers' result tables; reused rather than reimplemented per-paper.
 - `scripts/sweep_load.py` — LARS load-regime robustness sweep (six inter-arrival rates, 500 episodes/point).
+- `scripts/eval_ekf_continuous_error.py` reports both **ATE** (absolute per-sample error, no rigid alignment needed since estimate/odometry/ground-truth already share the world frame via the fixed camera) and **RPE** (Sturm et al. 2012 convention — error of the position delta between consecutive readings, isolates local step-to-step drift from ATE's accumulated error). This is the project's adopted metric convention for any future trajectory-error script — follow it rather than reporting only a bare mean/RMSE.
 
 ### Reproducibility package
 
