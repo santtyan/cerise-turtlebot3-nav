@@ -346,7 +346,10 @@ Curva/oclusão & 0,0\% & 0,178 / 0,178 & $-0,0\%$ & 0,205 / 0,205 & $-0,0\%$ \\
 
 Medido continuamente, o mesmo filtro é \textbf{12,7\% pior} que odometria pura: sinal invertido em relação ao slide anterior. No cenário de 0\% de cobertura, a mudança é exatamente 0,0\%: sem correções, a predição do EKF degenera matematicamente para integração pura de delta-odometria, idêntica à baseline não fundida. É confirmação, não coincidência.
 
-\vspace{0.2cm}
+\vspace{0.15cm}
+\scriptsize\textbf{ATE vs. RPE (Sturm et al. 2012):} o erro acima é ATE (erro absoluto por amostra). RPE (drift entre passos consecutivos) também piora, mas bem menos ($-4,2\%/-4,8\%$ agregado) — a reversão vem sobretudo de erro \emph{acumulando} sob correção esparsa, não de cada passo individual driftando muito mais que a odometria.
+
+\vspace{0.1cm}
 \small \textbf{Isso não invalida a contribuição:} reportar as duas métricas, em vez de só a favorável, é o ponto do trabalho, não uma admissão de fracasso.
 \end{frame}
 
