@@ -24,6 +24,13 @@ def nearest_free_policy(obs, num_robots):
 
     Míope por design: ignora destino e demandas futuras — é o que o PPO supera.
     Se todos ocupados, escolhe quem libera primeiro.
+
+    Mesmo núcleo de seleção que task_allocator.py:TaskAllocator.nearest_free
+    (nó ROS2 de produção), não compartilhado: aqui opera sobre observação
+    vetorizada do Gymnasium e sempre retorna alguém (o AllocationEnv não
+    modela "aguardar"); lá opera sobre odometria real via rclpy e retorna
+    None se ninguém livre. Se o critério de desempate mudar, replicar
+    manualmente nos dois.
     """
     positions, busy, origin, _dest, _future = obs_encoding.decode_obs(obs, num_robots)
     free = [r for r in range(num_robots) if busy[r] <= _FREE_EPS]

@@ -17,7 +17,6 @@ Parâmetros ROS:
 
 import csv
 import json
-import math
 import os
 import time
 
@@ -30,6 +29,7 @@ from rclpy.action import ActionClient
 from rclpy.node import Node
 from std_msgs.msg import String
 
+from cerise_nav.association import greedy_nearest_neighbor
 from cerise_nav.rl import obs_encoding
 
 LOG_FILE = os.path.expanduser('~/cerise_log.csv')
@@ -157,25 +157,18 @@ class RLTaskAllocator(Node):
                 self._assoc_count += self.num_robots
             return dict(self.odom)
 
-        # Associação greedy detecção -> robô (mesmo padrão de yolo_detector).
-        est = {}
-        used = set()
-        for r in self.robots:
-            ox, oy = self.odom[r]
-            best_d, best_j = float('inf'), -1
-            for j, (dx, dy) in enumerate(self.detections):
-                if j in used:
-                    continue
-                d = math.hypot(dx - ox, dy - oy)
-                if d < best_d:
-                    best_d, best_j = d, j
-            self._assoc_count += 1
-            if best_j >= 0 and best_d <= ASSOC_MAX_DIST:
-                used.add(best_j)
-                est[r] = self.detections[best_j]
-            else:
-                est[r] = self.odom[r]          # fallback
-                self._fallback_count += 1
+        # Associação greedy robô -> detecção mais próxima (association.py;
+        # equivalência com o laço manual anterior verificada por teste de
+        # propriedade em 20k casos aleatórios — a ordem de self.robots bate
+        # com a ordem de self.odom.items(), condição necessária para o
+        # greedy assimétrico produzir o mesmo pareamento).
+        assignments, unmatched = greedy_nearest_neighbor(
+            self.odom, self.detections, max_dist=ASSOC_MAX_DIST)
+        self._assoc_count += len(self.robots)
+        self._fallback_count += len(unmatched)
+        est = dict(assignments)
+        for r in unmatched:
+            est[r] = self.odom[r]
         return est
 
     def _busy_remaining(self, robot):

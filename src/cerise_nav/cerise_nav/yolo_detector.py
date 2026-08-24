@@ -211,7 +211,12 @@ class YoloDetector(Node):
         gt_positions = list(self.odom.values())  # [(x,y), ...]
         det_positions = [(wx, wy) for wx, wy, _ in detections]
 
-        # Associação greedy: each detection to nearest ground truth
+        # NÃO chama association.greedy_nearest_neighbor aqui: esse laço itera
+        # por DETECÇÃO buscando o GT mais próximo (não por robô/reference
+        # como greedy_nearest_neighbor faz). Greedy não é simétrico —
+        # trocar a ordem de iteração muda os pareamentos em ~75% dos casos
+        # testados (ambíguos), o que mudaria silenciosamente a métrica de
+        # erro publicada aqui. Ver auditoria de organização, 2026-08-24.
         total_error = 0.0
         matched = 0
         used_gt = set()

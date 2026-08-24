@@ -55,6 +55,13 @@ class TaskAllocator(Node):
         self.send_goal(robot, demand)
 
     def nearest_free(self, origin_xy):
+        # Mesmo núcleo de seleção (robô livre mais próximo) que
+        # rl/baselines.py:nearest_free_policy, mas não compartilhado: aqui
+        # opera sobre posição real de odometria/rclpy e retorna None se
+        # ninguém livre; lá opera sobre observação vetorizada do Gymnasium
+        # e sempre retorna alguém (quem libera primeiro), já que o
+        # AllocationEnv não modela "aguardar" como opção de ação. Se o
+        # critério de desempate mudar, replicar manualmente nos dois.
         free = [r for r in ROBOTS if not self.busy[r]]
         if not free:
             return None
