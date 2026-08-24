@@ -36,3 +36,14 @@ docs/**/*.out
 docs/**/*.snm
 docs/**/*.synctex.gz
 docs/**/*.toc
+
+# PDFs de terceiros da revisão de literatura (material bruto, não citável
+# diretamente — direitos autorais + tamanho não pertencem ao repo)
+docs/RSL/
+
+# Frames intermediários de animação (regeráveis via scripts/animate_allocation.py
+# e scripts/gen_slides_gif.py) — só o produto final (docs/allocation_nearest_free.gif)
+# é versionado
+docs/allocation_frames/
+docs/allocation_frames_clean/
+docs/allocation_frames_fluid/
