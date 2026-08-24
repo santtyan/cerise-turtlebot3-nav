@@ -11,8 +11,8 @@ cd "$(dirname "$0")"
 source /opt/ros/humble/setup.bash
 
 SCRIPT_DIR="$(pwd)"
-WORLD="$SCRIPT_DIR/world_with_camera.model"
-ROBOT_MODEL="$SCRIPT_DIR/waffle_nodepth.model"
+WORLD="$SCRIPT_DIR/worlds/world_with_camera.world"
+ROBOT_MODEL="$SCRIPT_DIR/worlds/waffle_nodepth.model"
 
 echo "🚀 Iniciando Gazebo com 2 robots..."
 echo "Aguarde a janela do Gazebo aparecer..."

@@ -263,10 +263,11 @@ def main():
     else:
         print('RESULTADO: calibração RUIM — revisar poses/detecção antes de aplicar ao pipeline.')
 
-    np.savez('/home/yan/Documentos/Projetos/cerise-turtlebot3-nav/camera_calibration.npz',
+    calibration_path = os.path.join(_REPO, 'config', 'camera_calibration.npz')
+    np.savez(calibration_path,
               mtx=mtx, dist=dist, rms_error=ret, mean_reprojection_error=mean_error,
               fx_sanity_ratio=fx_ratio)
-    print('\nSalvo em camera_calibration.npz')
+    print(f'\nSalvo em {calibration_path}')
 
     node.destroy_node()
     rclpy.shutdown()

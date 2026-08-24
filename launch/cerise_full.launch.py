@@ -15,15 +15,15 @@ from launch_ros.actions import Node, PushRosNamespace
 def generate_launch_description():
     # resolve() ANTES de navegar — segue o symlink do launch instalado até o repo
     pkg_dir    = Path(__file__).resolve().parent.parent
-    world_file = str(pkg_dir / "world_with_camera.world")
-    waffle     = str(pkg_dir / "waffle_nodepth.model")
+    world_file = str(pkg_dir / "worlds" / "world_with_camera.world")
+    waffle     = str(pkg_dir / "worlds" / "waffle_nodepth.model")
     nav_launch = "/opt/ros/humble/share/nav2_bringup/launch/navigation_launch.py"
     gz_dir     = "/opt/ros/humble/share/gazebo_ros"
 
     robots = [
-        {"name": "robot1", "x": "-0.55", "y":  "0.55", "params": str(pkg_dir / "params_r1.yaml")},
-        {"name": "robot2", "x":  "0.55", "y":  "0.55", "params": str(pkg_dir / "params_r2.yaml")},
-        {"name": "robot3", "x":  "0.55", "y": "-0.55", "params": str(pkg_dir / "params_r3.yaml")},
+        {"name": "robot1", "x": "-0.55", "y":  "0.55", "params": str(pkg_dir / "config" / "params_r1.yaml")},
+        {"name": "robot2", "x":  "0.55", "y":  "0.55", "params": str(pkg_dir / "config" / "params_r2.yaml")},
+        {"name": "robot3", "x":  "0.55", "y": "-0.55", "params": str(pkg_dir / "config" / "params_r3.yaml")},
     ]
 
     ld = LaunchDescription()

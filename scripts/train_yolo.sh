@@ -5,7 +5,7 @@
 cd /home/yan/Documentos/Projetos/cerise-turtlebot3-nav
 
 yolo train \
-  data=dataset.yaml \
+  data=config/dataset.yaml \
   model=yolov8n.pt \
   epochs=50 \
   patience=15 \

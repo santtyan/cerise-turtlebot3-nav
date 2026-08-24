@@ -36,6 +36,9 @@ CONF_THRESHOLD = 0.5
 MODEL_PATH = os.path.join(
     os.path.dirname(__file__), '..', '..', '..', '..', '..', '..', 'model_robot_detector.pt'
 )
+CALIBRATION_PATH = os.path.join(
+    os.path.dirname(__file__), '..', '..', '..', 'config', 'camera_calibration.npz'
+)
 
 SENSOR_QOS = QoSProfile(
     reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -57,9 +60,7 @@ class YoloDetector(Node):
         # (padrão). Usa camera_calibration.npz (cv2.calibrateCamera, Zhang 2000)
         # via /camera/camera_info em vez de pixel_to_world_simple.
         self.declare_parameter('use_calibrated_projection', False)
-        self.declare_parameter(
-            'calibration_path',
-            '/home/yan/Documentos/Projetos/cerise-turtlebot3-nav/camera_calibration.npz')
+        self.declare_parameter('calibration_path', CALIBRATION_PATH)
 
         model_path = self.get_parameter('model_path').value
         self.conf = self.get_parameter('conf_threshold').value

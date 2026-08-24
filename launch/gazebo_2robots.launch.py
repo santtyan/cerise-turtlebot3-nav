@@ -12,8 +12,8 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     pkg_dir = Path(__file__).parent.parent.resolve()
-    world_file = str(pkg_dir / "world_with_camera.world")
-    waffle_model = str(pkg_dir / "waffle_nodepth.model")
+    world_file = str(pkg_dir / "worlds" / "world_with_camera.world")
+    waffle_model = str(pkg_dir / "worlds" / "waffle_nodepth.model")
     pkg_gazebo_ros = "/opt/ros/humble/share/gazebo_ros"
 
     ld = LaunchDescription()

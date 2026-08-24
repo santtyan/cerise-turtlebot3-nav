@@ -14,12 +14,12 @@ source "$(dirname "${BASH_SOURCE[0]}")/install/local_setup.bash" 2>/dev/null || 
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MAP=/opt/ros/humble/share/nav2_bringup/maps/turtlebot3_world.yaml
-WORLD=$SCRIPT_DIR/world_with_camera.world
+WORLD=$SCRIPT_DIR/worlds/world_with_camera.world
 WAFFLE=/opt/ros/humble/share/nav2_bringup/worlds/waffle.model
 URDF=/opt/ros/humble/share/nav2_bringup/urdf/turtlebot3_waffle.urdf
-P1=$SCRIPT_DIR/params_r1.yaml
-P2=$SCRIPT_DIR/params_r2.yaml
-P3=$SCRIPT_DIR/params_r3.yaml
+P1=$SCRIPT_DIR/config/params_r1.yaml
+P2=$SCRIPT_DIR/config/params_r2.yaml
+P3=$SCRIPT_DIR/config/params_r3.yaml
 
 # ── 1. Gazebo ──────────────────────────────────────────────────────────────
 echo "[1/5] gzserver..."

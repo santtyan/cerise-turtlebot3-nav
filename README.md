@@ -92,7 +92,7 @@ Gera 60 frames sintéticos com trajetórias circulares, valida projeção (simpl
 python scripts/split_dataset.py --ratio 0.8
 
 # Treina YOLOv8
-yolo detect train data=dataset.yaml model=yolov8n.pt epochs=100 imgsz=640
+yolo detect train data=config/dataset.yaml model=yolov8n.pt epochs=100 imgsz=640
 ```
 
 ### 5. Validar inferência
@@ -141,15 +141,19 @@ cerise-turtlebot3-nav/
 │   ├── projection.py          # Projeção world→pixel (pinhole + fallback)
 │   ├── demand_generator.py    # Gerador de missões de navegação
 │   └── task_allocator.py      # Alocador de tarefas multi-robô
-├── world_with_camera.model    # Mundo Gazebo com câmera overhead (ATENÇÃO: causa segfault — ver Erros Comuns)
-├── world_simple.model         # Mundo estável para visualização GUI (sem plugin câmera)
-├── waffle_nodepth.model       # TurtleBot3 sem câmera de profundidade (WSL2)
+├── worlds/
+│   ├── world_with_camera.world  # Mundo Gazebo com câmera overhead (produção)
+│   ├── world_simple.model       # Mundo estável para visualização GUI (sem plugin câmera)
+│   └── waffle_nodepth.model     # TurtleBot3 sem câmera de profundidade (WSL2)
+├── config/
+│   ├── params_r1.yaml, params_r2.yaml, params_r3.yaml  # Nav2 por robô
+│   ├── dataset.yaml            # Configuração YOLO (train/val split)
+│   └── camera_calibration.npz  # Saída de scripts/calibrate_camera.py
 ├── launch_2robots.sh          # Headless — sem câmera
 ├── launch_2robots_with_camera.sh  # Headless + câmera overhead
 ├── run_gui.sh                 # Interface gráfica Gazebo
 ├── set_initialposes.sh        # Inicializa poses AMCL
-├── test_e2e_dataset_collector.py  # Teste sintético do pipeline
-└── dataset.yaml               # Configuração YOLO (train/val split)
+└── test_e2e_dataset_collector.py  # Teste sintético do pipeline
 ```
 
 ## Visualização Gazebo (Linux Nativo)
@@ -158,10 +162,10 @@ Para visualizar com GUI no Linux nativo (com mapa + robôs visíveis):
 
 ```bash
 export GAZEBO_MODEL_PATH=/opt/ros/humble/share/turtlebot3_gazebo/models:$GAZEBO_MODEL_PATH
-gzserver --verbose -s libgazebo_ros_init.so -s libgazebo_ros_factory.so -e ode ./world_simple.model &
+gzserver --verbose -s libgazebo_ros_init.so -s libgazebo_ros_factory.so -e ode ./worlds/world_simple.model &
 sleep 20
-ros2 run gazebo_ros spawn_entity.py -entity robot1 -file ./waffle_nodepth.model -robot_namespace robot1 -x 0.0 -y 0.5 -z 0.01 &
-ros2 run gazebo_ros spawn_entity.py -entity robot2 -file ./waffle_nodepth.model -robot_namespace robot2 -x 0.0 -y -0.5 -z 0.01 &
+ros2 run gazebo_ros spawn_entity.py -entity robot1 -file ./worlds/waffle_nodepth.model -robot_namespace robot1 -x 0.0 -y 0.5 -z 0.01 &
+ros2 run gazebo_ros spawn_entity.py -entity robot2 -file ./worlds/waffle_nodepth.model -robot_namespace robot2 -x 0.0 -y -0.5 -z 0.01 &
 sleep 10
 export DISPLAY=:0
 gzclient &
@@ -249,7 +253,7 @@ ros2 run cerise_nav dataset_collector
 Para datasets pequenos (150–500 frames) com uma única classe:
 
 ```bash
-yolo detect train data=dataset.yaml model=yolov8n.pt \
+yolo detect train data=config/dataset.yaml model=yolov8n.pt \
   epochs=50 batch=8 freeze=10 patience=20 imgsz=640
 ```
 
@@ -271,7 +275,7 @@ export GAZEBO_MODEL_DATABASE_URI=""   # desativa download de modelos
 
 ```bash
 # Em vez de world_with_camera.model, use:
-gzserver ... ./world_simple.model
+gzserver ... ./worlds/world_simple.model
 ```
 
 ### Mapa não aparece no Gazebo (mundo vazio)
