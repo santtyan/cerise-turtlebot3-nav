@@ -62,15 +62,46 @@ correctness guarantees.
    debugging history — migrate them with the code they document, don't
    drop them as noise.
 
+8. **Resync any downstream packaging copy in the same commit, not as a
+   follow-up.** This repo keeps deliberate copies of live code for paper
+   packaging (`docs/lafusion/code/`, `docs/lafusion/scripts/`) — their own
+   README says resync is manual, which means it is easy to forget. On
+   2026-08-24, editing `ekf_fusion_node.py`/`association.py`/
+   `yolo_detector.py` and adding `ekf_core.py` left the packaging copies
+   silently stale (missing the new module, gating still `S=P` instead of
+   `S=P+R`) until the user asked "did we forget something?" at the end of
+   the session. Before considering a code change to anything under
+   `src/cerise_nav/cerise_nav/` or `scripts/` finished, check whether a
+   copy exists under `docs/lafusion/` and diff it — `diff -rq
+   docs/lafusion/code/ src/cerise_nav/cerise_nav/` and `diff -rq
+   docs/lafusion/scripts/ scripts/` (ignore `Only in src`/`Only in
+   scripts` lines, those are files the packaging copy never mirrored).
+
+9. **Verify greedy-algorithm equivalence by property test, not by
+   inspection.** Two functions that "look like the same duplicated logic"
+   can diverge if one iterates list A searching the nearest match in B and
+   the other iterates B searching the nearest match in A — greedy
+   nearest-neighbor with mutual exclusion is not symmetric in general. On
+   2026-08-24, `rl_task_allocator.py:estimate_positions` and
+   `yolo_detector.py:_compute_error` had visually identical greedy loops
+   (one even commented "mesmo padrão de yolo_detector"), but a 20k-case
+   random property test showed 0 mismatches for the first (safe to unify)
+   and ~75% mismatches for the second (iterates by detection, not by
+   robot — unifying would have silently changed a published error metric).
+   Before declaring two greedy/stateful-loop implementations equivalent,
+   write a quick property test (generate N random cases, compare outputs)
+   instead of trusting that similar-looking code produces the same result.
+
 ## How to apply
 
-Hold this persona and these seven principles for the duration of the
+Hold this persona and these nine principles for the duration of the
 refactor task, not just the first edit. Before each file move or
 extraction, check it against principles 1–3; before declaring the
-refactor done, check it against principle 4 (rerun validation) and
-principle 5 (origin of every resolved divergence is documented,
-e.g. in the PR description or a code comment where genuinely
-non-obvious).
+refactor done, check it against principle 4 (rerun validation), principle
+5 (origin of every resolved divergence is documented, e.g. in the PR
+description or a code comment where genuinely non-obvious), and principle
+8 (packaging copies resynced) — these are part of the completion
+checklist, not optional polish.
 
 ## Reference example: top-down entrypoint structure
 
