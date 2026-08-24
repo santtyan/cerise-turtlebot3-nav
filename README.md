@@ -480,16 +480,16 @@ runs/detect/runs/detect/train_optimized/
 ### Imagens prontas para slides
 
 ### Predições do modelo (val set)
-![Predições YOLO](docs/results/val_batch0_pred.jpg)
+![Predições YOLO](docs/legacy/results/val_batch0_pred.jpg)
 
 ### Curva de Aprendizado (Loss + mAP por época)
-![Results](docs/results/results.png)
+![Results](docs/legacy/results/results.png)
 
 ### Matriz de Confusão
-![Confusion Matrix](docs/results/confusion_matrix_normalized.png)
+![Confusion Matrix](docs/legacy/results/confusion_matrix_normalized.png)
 
 ### Curva F1 × Confidence
-![F1 Curve](docs/results/BoxF1_curve.png)
+![F1 Curve](docs/legacy/results/BoxF1_curve.png)
 
 | Arquivo | Conteúdo | Uso recomendado |
 |---------|----------|-----------------|

@@ -112,7 +112,7 @@ ax.text(5, 0.35, 'Training: 500k steps | Ablation: PPO(YOLO) vs PPO(odom) | Eval
         ha='center', fontsize=8, color='#475569', style='italic')
 
 plt.tight_layout()
-out = 'docs/slides_amanha/H_mdp_diagram.png'
+out = 'docs/legacy/slides_amanha/H_mdp_diagram.png'
 os.makedirs(os.path.dirname(out), exist_ok=True)
 fig.savefig(out, dpi=150, bbox_inches='tight', facecolor='white')
 print(f'Diagrama MDP salvo: {out}')
