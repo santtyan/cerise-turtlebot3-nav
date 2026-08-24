@@ -34,7 +34,7 @@ IMG_WIDTH = 640
 IMG_HEIGHT = 480
 CONF_THRESHOLD = 0.5
 MODEL_PATH = os.path.join(
-    os.path.dirname(__file__), '..', '..', '..', '..', '..', '..', 'model_robot_detector.pt'
+    os.path.dirname(__file__), '..', '..', '..', 'model_robot_detector.pt'
 )
 CALIBRATION_PATH = os.path.join(
     os.path.dirname(__file__), '..', '..', '..', 'config', 'camera_calibration.npz'
