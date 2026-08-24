@@ -23,3 +23,16 @@ frames_*.gv
 frames_*.pdf
 # Viewer HTML efêmero
 dataset_viewer.html
+
+# Artefatos de compilação LaTeX (pdflatex gera a cada build, docs/*/main.pdf
+# é o único produto versionado) — escopo em docs/ para não capturar .log de
+# scripts/nós ROS2 fora dos diretórios de paper/slide
+docs/**/*.aux
+docs/**/*.fdb_latexmk
+docs/**/*.fls
+docs/**/*.log
+docs/**/*.nav
+docs/**/*.out
+docs/**/*.snm
+docs/**/*.synctex.gz
+docs/**/*.toc
