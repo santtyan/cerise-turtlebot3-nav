@@ -18,13 +18,26 @@ Uso:
 
 import argparse
 import math
+import os
+import sys
 
 import numpy as np
 from scipy import stats
 
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src', 'cerise_nav'))
+from cerise_nav.ekf_core import correct as _core_correct  # noqa: E402
+from cerise_nav.ekf_core import r_from_confidence as _core_r_from_confidence  # noqa: E402
+
 
 # ---------------------------------------------------------------------------
 # EKF: [px, py, theta], predição via odometria (v, w), correção via posição YOLO
+#
+# predict() usa um modelo de movimento unicycle (v, w) próprio deste script —
+# não é compartilhado com ekf_fusion_node.py/eval_ekf_*.py, que consomem
+# leituras absolutas de odometria já integradas (delta-odometry). São dois
+# modelos de predição genuinamente diferentes; só correct() é idêntica entre
+# os quatro lugares e por isso foi extraída para cerise_nav/ekf_core.py.
 
 def predict(state, cov, v, w, dt, Q):
     px, py, theta = state
@@ -45,26 +58,13 @@ def predict(state, cov, v, w, dt, Q):
 
 
 def correct(state, cov, measurement, R):
-    # Medição = posição [px, py] (YOLO não observa theta diretamente)
-    H = np.array([
-        [1.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0],
-    ])
-    innovation = measurement - H @ state
-    S = H @ cov @ H.T + R
-    K = cov @ H.T @ np.linalg.inv(S)
-
-    state_new = state + K @ innovation
-    cov_new = (np.eye(3) - K @ H) @ cov
-    return state_new, cov_new, innovation, S
+    return _core_correct(state, cov, measurement, R)
 
 
 def r_from_confidence(conf, r_min=0.02, r_max=0.20):
     """R menor (mais confiança no filtro) quanto maior a confiança do YOLO.
-    Mesma lógica que ekf_fusion_node.py usará com box.conf[0]."""
-    conf = np.clip(conf, 0.05, 1.0)
-    sigma = r_min + (1.0 - conf) * (r_max - r_min)
-    return np.diag([sigma ** 2, sigma ** 2])
+    Mesma lógica usada em ekf_fusion_node.py com box.conf[0]."""
+    return _core_r_from_confidence(conf, r_min, r_max)
 
 
 # ---------------------------------------------------------------------------

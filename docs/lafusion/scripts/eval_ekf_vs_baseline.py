@@ -33,6 +33,8 @@ sys.path.insert(0, os.path.join(_REPO, 'src', 'cerise_nav'))
 sys.path.insert(0, os.path.join(_REPO, 'scripts'))
 
 from cerise_nav.association import mahalanobis_gate  # noqa: E402
+from cerise_nav.ekf_core import correct as _core_correct  # noqa: E402
+from cerise_nav.ekf_core import r_from_confidence as _core_r_from_confidence  # noqa: E402
 from stats_tests import bootstrap_ci, wilcoxon_signed_rank  # noqa: E402
 
 ROBOTS = ['robot1', 'robot2', 'robot3']
@@ -46,14 +48,27 @@ ROBOTS = ['robot1', 'robot2', 'robot3']
 # Q=0.5-1.0 (ver plano LAFusion, passo 4, para a tabela completa).
 Q_DIAG = (0.5, 0.5, 0.25)
 COV_CAP = 0.05  # teto de covariância (metros², rad²) — None desabilita
+# Fading factor (AFKF, Adaptive Fading Kalman Filter) foi testado como
+# alternativa ao clip bruto (17/08/2026) — teoricamente superior por não
+# quebrar a estrutura semi-definida positiva de P — mas EMPIRICAMENTE PIOR
+# neste pipeline: sem teto, ou com teto generoso o bastante para o fading
+# ter efeito prático diferente do clip, P cresce o bastante para o gate de
+# Mahalanobis aceitar detecções de outro robô durante gaps longos sem
+# correção (cenário 2, oclusão) — o mesmo modo de falha que o clip existe
+# para evitar. Ganho no drift agressivo caiu de +23,7%/+16,7% (clip) para
+# -16,5%/-104% (fading sem teto) e para -3,9% a -19,3% (fading com teto
+# 0,1-0,3). Mantido no código como opção experimental (COV_UPDATE_MODE),
+# default permanece 'clip'.
+COV_UPDATE_MODE = 'clip'  # 'clip' | 'fading' | 'fading_capped'
+FADE_RATE = 0.05
+FADE_MAX = 5.0
+FADING_COV_CAP = 0.5  # teto usado só em 'fading_capped', mais generoso que COV_CAP
 R_MIN, R_MAX = 0.02, 0.20
 POS_DRIFT_ODOM = 0.03  # mesmo valor de allocation_env.py
 
 
 def r_from_confidence(conf):
-    conf = np.clip(conf, 0.05, 1.0)
-    sigma = R_MIN + (1.0 - conf) * (R_MAX - R_MIN)
-    return np.diag([sigma ** 2, sigma ** 2])
+    return _core_r_from_confidence(conf, R_MIN, R_MAX)
 
 
 class RobotEKF:
@@ -66,6 +81,7 @@ class RobotEKF:
         self.cov = np.diag([0.01, 0.01, 0.01])
         self._last_odom = None
         self._last_t = None
+        self._steps_since_correction = 0
 
     def predict(self, x, y, theta, t):
         if self._last_odom is None:
@@ -89,25 +105,42 @@ class RobotEKF:
         F = np.eye(3)
         self.state = self.state + np.array([dx, dy, dtheta])
         self.state[2] = math.atan2(math.sin(self.state[2]), math.cos(self.state[2]))
-        self.cov = F @ self.cov @ F.T + Q
 
-        # Teto de covariância: sem correção por muitos passos (YOLO perdendo
-        # detecção por oclusão/movimento — visto no cenário 2), cov cresce sem
-        # limite com Q grande, quebrando o gating de Mahalanobis (aceita
-        # qualquer detecção como "próxima", causando "roubo" — efeito da
-        # referência #4, Altendorfer & Wirkert 2015). Achado desta sessão:
-        # cov chegou a 85 (deveria ~0.5) num evento real do bag.
-        if COV_CAP is not None:
-            np.clip(self.cov, None, COV_CAP, out=self.cov)
+        if COV_UPDATE_MODE in ('fading', 'fading_capped'):
+            # AFKF (Adaptive Fading Kalman Filter): escala apenas a
+            # injeção de ruído de processo (Q) por um fator lambda >= 1
+            # crescente com passos sem correção, em vez de truncar
+            # elementos individuais de P (o que quebra PSD). O fator
+            # multiplica só Q, não P inteira — escalar P a cada passo
+            # seria um produto geométrico e faria P divergir para
+            # infinito em poucas dezenas de passos.
+            self._steps_since_correction += 1
+            fade = min(1.0 + FADE_RATE * self._steps_since_correction, FADE_MAX)
+            self.cov = F @ self.cov @ F.T + fade * Q
+            if COV_UPDATE_MODE == 'fading_capped' and FADING_COV_CAP is not None:
+                # Híbrido: mesmo com fading, sem teto o traço de P cresce o
+                # bastante para o gate de Mahalanobis aceitar detecções de
+                # outro robô ("roubo" de associação) — testado empiricamente,
+                # não hipotético (ver achado 17/08/2026). Teto mais generoso
+                # que o clip original (0.05) para não anular o benefício
+                # teórico do fading, mas ainda protege o gating.
+                np.clip(self.cov, None, FADING_COV_CAP, out=self.cov)
+        else:
+            self.cov = F @ self.cov @ F.T + Q
+            # Teto de covariância: sem correção por muitos passos (YOLO
+            # perdendo detecção por oclusão/movimento — visto no cenário 2),
+            # cov cresce sem limite com Q grande, quebrando o gating de
+            # Mahalanobis (aceita qualquer detecção como "próxima", causando
+            # "roubo" — efeito da referência #4, Altendorfer & Wirkert 2015).
+            # Achado desta sessão: cov chegou a 85 (deveria ~0.5) num evento
+            # real do bag.
+            if COV_CAP is not None:
+                np.clip(self.cov, None, COV_CAP, out=self.cov)
 
     def correct(self, det_xy, conf):
-        H = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
         R = r_from_confidence(conf)
-        innovation = np.array(det_xy) - H @ self.state
-        S = H @ self.cov @ H.T + R
-        K = self.cov @ H.T @ np.linalg.inv(S)
-        self.state = self.state + K @ innovation
-        self.cov = (np.eye(3) - K @ H) @ self.cov
+        self.state, self.cov, _innovation, _S = _core_correct(self.state, self.cov, det_xy, R)
+        self._steps_since_correction = 0
 
 
 def read_bag(bag_path):
@@ -151,7 +184,9 @@ def run_scenario(bag_path, inject_drift, rng, drift_rate_divisor=200.0):
             if not odom_drifted or not filters:
                 continue
             cov_by_robot = {r: f.cov for r, f in filters.items() if r in odom_drifted}
-            assignments, _ = mahalanobis_gate(odom_drifted, cov_by_robot, detections)
+            r_by_detection = [r_from_confidence(det_conf.get(d, 0.5)) for d in detections]
+            assignments, _ = mahalanobis_gate(odom_drifted, cov_by_robot, detections,
+                                               r_by_detection=r_by_detection)
             for robot_id, det_xy in assignments.items():
                 conf = det_conf.get(det_xy, 0.5)
                 filters[robot_id].correct(det_xy, conf)

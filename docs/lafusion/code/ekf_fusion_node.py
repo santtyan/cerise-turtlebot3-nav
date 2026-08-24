@@ -19,6 +19,7 @@ from nav_msgs.msg import Odometry
 from geometry_msgs.msg import PoseArray, PoseWithCovarianceStamped
 
 from cerise_nav.association import mahalanobis_gate
+from cerise_nav.ekf_core import correct, r_from_confidence as _r_from_confidence
 
 
 SENSOR_QOS = QoSProfile(
@@ -47,9 +48,7 @@ COV_CAP = 0.05
 
 
 def r_from_confidence(conf: float) -> np.ndarray:
-    conf = np.clip(conf, 0.05, 1.0)
-    sigma = R_MIN + (1.0 - conf) * (R_MAX - R_MIN)
-    return np.diag([sigma ** 2, sigma ** 2])
+    return _r_from_confidence(conf, R_MIN, R_MAX)
 
 
 class RobotEKF:
@@ -93,13 +92,8 @@ class RobotEKF:
         np.clip(self.cov, None, COV_CAP, out=self.cov)
 
     def correct_with_detection(self, det_xy, conf):
-        H = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
         R = r_from_confidence(conf)
-        innovation = np.array(det_xy) - H @ self.state
-        S = H @ self.cov @ H.T + R
-        K = self.cov @ H.T @ np.linalg.inv(S)
-        self.state = self.state + K @ innovation
-        self.cov = (np.eye(3) - K @ H) @ self.cov
+        self.state, self.cov, _innovation, _S = correct(self.state, self.cov, det_xy, R)
 
 
 class EkfFusionNode(Node):
@@ -152,8 +146,9 @@ class EkfFusionNode(Node):
             return
 
         cov_by_robot = {r: f.cov for r, f in self.filters.items() if r in self._odom_raw}
+        r_by_detection = [r_from_confidence(det_conf.get(d, 0.5)) for d in self._detections]
         assignments, _unmatched = mahalanobis_gate(
-            self._odom_raw, cov_by_robot, self._detections)
+            self._odom_raw, cov_by_robot, self._detections, r_by_detection=r_by_detection)
 
         for robot_id, det_xy in assignments.items():
             conf = det_conf.get(det_xy, 0.5)  # fallback conservador se chave não bater

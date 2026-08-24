@@ -34,7 +34,10 @@ IMG_WIDTH = 640
 IMG_HEIGHT = 480
 CONF_THRESHOLD = 0.5
 MODEL_PATH = os.path.join(
-    os.path.dirname(__file__), '..', '..', '..', '..', '..', '..', 'model_robot_detector.pt'
+    os.path.dirname(__file__), '..', '..', '..', 'model_robot_detector.pt'
+)
+CALIBRATION_PATH = os.path.join(
+    os.path.dirname(__file__), '..', '..', '..', 'config', 'camera_calibration.npz'
 )
 
 SENSOR_QOS = QoSProfile(
@@ -57,9 +60,7 @@ class YoloDetector(Node):
         # (padrão). Usa camera_calibration.npz (cv2.calibrateCamera, Zhang 2000)
         # via /camera/camera_info em vez de pixel_to_world_simple.
         self.declare_parameter('use_calibrated_projection', False)
-        self.declare_parameter(
-            'calibration_path',
-            '/home/yan/Documentos/Projetos/cerise-turtlebot3-nav/camera_calibration.npz')
+        self.declare_parameter('calibration_path', CALIBRATION_PATH)
 
         model_path = self.get_parameter('model_path').value
         self.conf = self.get_parameter('conf_threshold').value
@@ -211,7 +212,12 @@ class YoloDetector(Node):
         gt_positions = list(self.odom.values())  # [(x,y), ...]
         det_positions = [(wx, wy) for wx, wy, _ in detections]
 
-        # Associação greedy: each detection to nearest ground truth
+        # NÃO chama association.greedy_nearest_neighbor aqui: esse laço itera
+        # por DETECÇÃO buscando o GT mais próximo (não por robô/reference
+        # como greedy_nearest_neighbor faz). Greedy não é simétrico —
+        # trocar a ordem de iteração muda os pareamentos em ~75% dos casos
+        # testados (ambíguos), o que mudaria silenciosamente a métrica de
+        # erro publicada aqui. Ver auditoria de organização, 2026-08-24.
         total_error = 0.0
         matched = 0
         used_gt = set()
