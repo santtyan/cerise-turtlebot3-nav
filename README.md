@@ -57,7 +57,7 @@ source install/setup.bash
 
 ```bash
 # Terminal 1 — Gazebo + 2 robots + Nav2 + initial poses (automático, ~60s)
-./launch_2robots_with_camera.sh
+./launch/launch_2robots_with_camera.sh
 # Aguarda "[OK] Nav2 pronto!" antes de abrir outros terminais
 
 # Terminal 2 — Goals aleatórios (robôs navegam autonomamente)
@@ -73,7 +73,7 @@ ros2 run cerise_nav dataset_collector
 gzclient
 ```
 
-O `launch_2robots_with_camera.sh` já publica as initial poses automaticamente — **não** é necessário rodar `set_initialposes.sh` separadamente.
+O `launch/launch_2robots_with_camera.sh` já publica as initial poses automaticamente — **não** é necessário rodar `launch/set_initialposes.sh` separadamente.
 
 O collector salva automaticamente em `dataset/raw/images/` e `dataset/raw/annotations/` a 1 fps.
 
@@ -149,10 +149,12 @@ cerise-turtlebot3-nav/
 │   ├── params_r1.yaml, params_r2.yaml, params_r3.yaml  # Nav2 por robô
 │   ├── dataset.yaml            # Configuração YOLO (train/val split)
 │   └── camera_calibration.npz  # Saída de scripts/calibrate_camera.py
-├── launch_2robots.sh          # Headless — sem câmera
-├── launch_2robots_with_camera.sh  # Headless + câmera overhead
-├── run_gui.sh                 # Interface gráfica Gazebo
-├── set_initialposes.sh        # Inicializa poses AMCL
+├── launch/
+│   ├── launch_2robots.sh              # Headless — sem câmera
+│   ├── launch_2robots_with_camera.sh  # Headless + câmera overhead
+│   ├── launch_3robots_with_camera.sh  # Headless + câmera overhead, 3 robôs
+│   ├── run_gui.sh                     # Interface gráfica Gazebo
+│   └── set_initialposes.sh            # Inicializa poses AMCL
 └── test_e2e_dataset_collector.py  # Teste sintético do pipeline
 ```
 
@@ -192,7 +194,7 @@ ros2 topic pub --once /robot1/initialpose geometry_msgs/PoseWithCovarianceStampe
   "{header: {frame_id: 'map'}, pose: {pose: {position: {x: 0.0, y: 0.5, z: 0.0}, orientation: {w: 1.0}}}}"
 ```
 
-O `launch_2robots_with_camera.sh` já faz isso automaticamente após 45s.
+O `launch/launch_2robots_with_camera.sh` já faz isso automaticamente após 45s.
 
 ### Câmera overhead: pitch correto
 

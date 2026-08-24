@@ -35,7 +35,7 @@ echo ""
 echo "═══════════════════════════════════════════════════"
 echo " Pronto para rodada: $POLICY"
 echo ""
-echo " Passo 1 (T1): bash launch_2robots_with_camera.sh"
+echo " Passo 1 (T1): bash launch/launch_2robots_with_camera.sh"
 echo " Passo 2:      aguardar 70s até Nav2 ativar"
 echo " Passo 3 (T2): ros2 run cerise_nav demand_generator"
 if [ "$POLICY" = "ppo" ]; then

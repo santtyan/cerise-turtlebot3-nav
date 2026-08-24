@@ -70,7 +70,7 @@ Before writing/editing any paper section, generating a scientific figure, adding
 - **Never use Docker** — scope decision already made for the LARS/LAFusion papers.
 - **Always `python3`**, never `python`.
 - Compile LaTeX papers: `pdflatex -interaction=nonstopmode main.tex` — run **twice** (cross-references only resolve on the 2nd pass). Count pages: `pdfinfo main.pdf | grep Pages`.
-- Bring up the multi-robot pipeline: `./launch_3robots_with_camera.sh`, wait **70s+** before running any other node (Nav2 takes a while to stabilize).
+- Bring up the multi-robot pipeline: `./launch/launch_3robots_with_camera.sh`, wait **70s+** before running any other node (Nav2 takes a while to stabilize).
 - Stuck Gazebo/Nav2 zombie nodes: `pkill -9 component_container` before relaunching — restarting without this leaves DDS ports held.
 - If a ROS2 node keeps logging but no CLI subscriber receives anything (even with compatible QoS), that process's DDS state is stuck — kill and relaunch it, no need to restart the whole environment. **Caveat**: confirming `ros2 topic hz` looks healthy right after a relaunch does not guarantee publication stays stable through a subsequent `ros2 bag record` — always check the actual message count in the recorded bag, don't trust a prior `hz` check alone.
 

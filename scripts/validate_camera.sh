@@ -9,8 +9,11 @@ export GAZEBO_MODEL_DATABASE_URI=""
 
 source /opt/ros/humble/setup.bash
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORLD="$SCRIPT_DIR/../worlds/world_with_camera.world"
+
 echo "Lançando gzserver com câmera por 30s..."
-gzserver --verbose -s libgazebo_ros_init.so -s libgazebo_ros_factory.so world_with_camera.model > /dev/null 2>&1 &
+gzserver --verbose -s libgazebo_ros_init.so -s libgazebo_ros_factory.so "$WORLD" > /dev/null 2>&1 &
 GZPID=$!
 sleep 15
 
