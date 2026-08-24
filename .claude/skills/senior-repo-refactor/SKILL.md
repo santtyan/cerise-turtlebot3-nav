@@ -142,3 +142,76 @@ refactor an existing one), hold it to this same shape: orchestration
 at the top, one module per integration/responsibility boundary, config
 kept minimal, CLI surface kept small — this is principle 2 applied to
 greenfield structure rather than to extraction from existing files.
+
+## Reference standard: UFG Metaverso "Standards for Software Development"
+
+The user also supplied a project-wide standards document from a
+**different** codebase (UFG Metaverso) as a second reference for this
+persona. It governs task tracking (Planka lists: META → NOVA → A FAZER
+→ EM EXECUÇÃO → EM AVALIAÇÃO → CONCLUÍDA/CANCELADA, code pushed to
+GitLab before a task can move to EM AVALIAÇÃO), branching (`main` =
+stable/production, `dev` = latest development, `feat/`/`fix/` branches
+per feature or bugfix), and documentation:
+
+- All code identifiers, comments, and strings in **English**, function
+  names in **camelCase**.
+- Every function documented with purpose, input, output,
+  preconditions, and dependencies (JSDoc for JS, PEP 257 / docstrings
+  for Python — summarized below).
+- Every file carries a standard header comment.
+- A `README.md` per the standard-readme spec, with a `/docs` folder
+  for anything longer.
+
+### PEP 257 docstring rules (the Python half of that requirement)
+
+- A docstring is the string literal that is the *first statement* in a
+  module, function, class, or method — it becomes `__doc__`. Every
+  module, and every function/class a module exports, should have one;
+  public methods (including `__init__`) too.
+- Always `"""triple double quotes"""`, even for a one-liner (makes it
+  trivial to expand later).
+- **One-liner**: fits on one line, closing quotes on the same line, no
+  blank line before or after. Phrase it as a command describing the
+  effect ("Return the pathname...", not "Returns the pathname...").
+  Never restate the signature (`"""function(a, b) -> list"""`) —
+  that's redundant with introspection; instead say what it does
+  (`"""Do X and return a list."""`).
+- **Multi-line**: a one-line summary, a blank line, then elaboration.
+  The summary must stand alone on one line since indexing tools may
+  extract just that line. Closing quotes go on their own line unless
+  the whole thing fits on one line.
+- A function/method docstring covers: behavior summary, each argument
+  (one per line, correct real names — never uppercase Emacs-style
+  placeholders, since names double as keyword-argument identifiers),
+  which arguments are optional/have defaults, return value, side
+  effects, exceptions raised, and any restriction on when it may be
+  called.
+- A class docstring covers: behavior summary, public methods, public
+  instance variables, and (if meant to be subclassed) the subclass
+  interface — with the constructor documented on `__init__`, not the
+  class docstring itself. A subclass docstring should say whether it
+  *overrides* (replaces, no super call) or *extends* (calls super
+  first, then adds) each inherited method it touches.
+- A script's module docstring should double as its usage message —
+  what it does, CLI syntax, env vars, files touched. This project's
+  existing scripts (`scripts/eval_ekf_vs_baseline.py`,
+  `scripts/validate_ekf_synthetic.py`) already follow this shape in
+  Portuguese; treat that as the working pattern for CERISE, and use
+  English for any file actually under the UFG Metaverso standard.
+- Pick one docstring formatting convention per project (Google,
+  NumPy/SciPy, reStructuredText, or Epytext for the `Args:`/
+  `Parameters`/`:param:` block style) and stay consistent — don't mix
+  them within one codebase.
+
+**This standard applies only when working in the UFG Metaverso
+codebase (or a project the user explicitly places under it) — it does
+not override this repository's (CERISE) own conventions.** CERISE's
+`CLAUDE.md` mandates Portuguese for paper prose and requires committed
+comments to preserve their original incident context (principle 7
+above) rather than being rewritten to fit an external doc standard;
+CERISE also uses `snake_case` throughout its Python, not camelCase.
+When asked to apply "the standard" or "the UFG Metaverso rules," first
+confirm which codebase the current task is actually in — English
+naming/camelCase/docstring-header requirements are real and binding
+for UFG Metaverso work, but must not be silently applied to CERISE
+files just because this skill also runs there.
