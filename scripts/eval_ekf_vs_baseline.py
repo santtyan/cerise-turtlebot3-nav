@@ -33,6 +33,8 @@ sys.path.insert(0, os.path.join(_REPO, 'src', 'cerise_nav'))
 sys.path.insert(0, os.path.join(_REPO, 'scripts'))
 
 from cerise_nav.association import mahalanobis_gate  # noqa: E402
+from cerise_nav.ekf_core import correct as _core_correct  # noqa: E402
+from cerise_nav.ekf_core import r_from_confidence as _core_r_from_confidence  # noqa: E402
 from stats_tests import bootstrap_ci, wilcoxon_signed_rank  # noqa: E402
 
 ROBOTS = ['robot1', 'robot2', 'robot3']
@@ -66,9 +68,7 @@ POS_DRIFT_ODOM = 0.03  # mesmo valor de allocation_env.py
 
 
 def r_from_confidence(conf):
-    conf = np.clip(conf, 0.05, 1.0)
-    sigma = R_MIN + (1.0 - conf) * (R_MAX - R_MIN)
-    return np.diag([sigma ** 2, sigma ** 2])
+    return _core_r_from_confidence(conf, R_MIN, R_MAX)
 
 
 class RobotEKF:
@@ -138,16 +138,8 @@ class RobotEKF:
                 np.clip(self.cov, None, COV_CAP, out=self.cov)
 
     def correct(self, det_xy, conf):
-        H = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
         R = r_from_confidence(conf)
-        innovation = np.array(det_xy) - H @ self.state
-        S = H @ self.cov @ H.T + R
-        K = self.cov @ H.T @ np.linalg.inv(S)
-        self.state = self.state + K @ innovation
-        # Forma de Joseph: preserva simetria e PSD de P sob erro numérico
-        # (mesma correção aplicada em ekf_fusion_node.py, 17/08/2026).
-        I_KH = np.eye(3) - K @ H
-        self.cov = I_KH @ self.cov @ I_KH.T + K @ R @ K.T
+        self.state, self.cov, _innovation, _S = _core_correct(self.state, self.cov, det_xy, R)
         self._steps_since_correction = 0
 
 

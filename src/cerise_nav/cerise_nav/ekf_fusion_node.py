@@ -19,6 +19,7 @@ from nav_msgs.msg import Odometry
 from geometry_msgs.msg import PoseArray, PoseWithCovarianceStamped
 
 from cerise_nav.association import mahalanobis_gate
+from cerise_nav.ekf_core import correct, r_from_confidence as _r_from_confidence
 
 
 SENSOR_QOS = QoSProfile(
@@ -47,9 +48,7 @@ COV_CAP = 0.05
 
 
 def r_from_confidence(conf: float) -> np.ndarray:
-    conf = np.clip(conf, 0.05, 1.0)
-    sigma = R_MIN + (1.0 - conf) * (R_MAX - R_MIN)
-    return np.diag([sigma ** 2, sigma ** 2])
+    return _r_from_confidence(conf, R_MIN, R_MAX)
 
 
 class RobotEKF:
@@ -93,18 +92,8 @@ class RobotEKF:
         np.clip(self.cov, None, COV_CAP, out=self.cov)
 
     def correct_with_detection(self, det_xy, conf):
-        H = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
         R = r_from_confidence(conf)
-        innovation = np.array(det_xy) - H @ self.state
-        S = H @ self.cov @ H.T + R
-        K = self.cov @ H.T @ np.linalg.inv(S)
-        self.state = self.state + K @ innovation
-        # Forma de Joseph: preserva simetria e positividade semi-definida de
-        # P mesmo sob erro numérico, ao contrário da forma simplificada
-        # (I-KH)P, que só é exata para K ótimo sem arredondamento (Bar-Shalom
-        # et al., Estimation with Applications to Tracking and Navigation).
-        I_KH = np.eye(3) - K @ H
-        self.cov = I_KH @ self.cov @ I_KH.T + K @ R @ K.T
+        self.state, self.cov, _innovation, _S = correct(self.state, self.cov, det_xy, R)
 
 
 class EkfFusionNode(Node):
