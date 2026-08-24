@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # CERISE — TurtleBot3 Multi-Robot Digital Twin
 
 Digital twin research project (UFG/EMC, advisor Alisson Assis Cardoso) with two independent papers sharing the same ROS2/Gazebo codebase and three-TurtleBot3 platform:
-- **LARS 2026** (`docs/paper_lars/`, submitted) — PPO reinforcement learning for multi-robot task allocation (MRTA), grounded in a camera+YOLO digital twin. Central finding is a *negative result*: PPO does not beat the greedy `nearest-free` heuristic, and a causal test (action masking) refutes the leading explanation for the gap.
+- **LARS 2026** (`docs/paper_lars/`, submitted — the actually-submitted PDF/source is `docs/paper_lars/SUBMISSAO_FINAL_2026-08-05/`, per its own `LEIA-ME.md`; the other subfolders there are earlier drafting rounds) — PPO reinforcement learning for multi-robot task allocation (MRTA), grounded in a camera+YOLO digital twin. Central finding is a *negative result*: PPO does not beat the greedy `nearest-free` heuristic, and a causal test (action masking) refutes the leading explanation for the gap.
 - **LAFusion 2026** (`docs/lafusion_paper/`, in progress, deadline 2026-09-04) — Extended Kalman Filter fusing YOLO visual detection with odometry, replacing a discrete fallback. Reports both a correction-instant gain (+23.7%) and a continuous-error degradation (-12.7%) under sparse visual coverage, grounded in Kalman-filtering-under-intermittent-observations theory.
 
 ## Build and test
@@ -52,6 +52,10 @@ There's no single test command that proves a pipeline change is correct — vali
 - `scripts/sweep_load.py` — LARS load-regime robustness sweep (six inter-arrival rates, 500 episodes/point).
 - `scripts/eval_ekf_continuous_error.py` reports both **ATE** (absolute per-sample error, no rigid alignment needed since estimate/odometry/ground-truth already share the world frame via the fixed camera) and **RPE** (Sturm et al. 2012 convention — error of the position delta between consecutive readings, isolates local step-to-step drift from ATE's accumulated error). This is the project's adopted metric convention for any future trajectory-error script — follow it rather than reporting only a bare mean/RMSE.
 
+### Repository layout after the 2026-08-24 cleanup
+
+The repo root used to have ~35 loose files; entry-point shell scripts now live in `launch/` (alongside the existing `*.launch.py`), Gazebo worlds/robot models in `worlds/`, YAML configs and `camera_calibration.npz` in `config/`, and superseded docs/slides/figures (no longer referenced by any active paper or script) in `docs/legacy/`. If a script you're editing references a bare filename like `params_r1.yaml` or `world_with_camera.world`, check whether it resolves the path dynamically (`$SCRIPT_DIR/../config/...` in shell, `Path(__file__).resolve().parent.parent / "config" / ...` in the `launch/*.launch.py` files) before assuming it still works after a move.
+
 ### Reproducibility package
 
 `bags/reproducibility_package/` pins a specific git SHA, hyperparameters (`params.yaml`), camera calibration, and world/URDF files needed to rerun the LAFusion results independently. `docs/lafusion/` mirrors (copies, not symlinks) the live scripts/code/figures for paper packaging — its own README says explicitly to edit the originals in `scripts/`/`src/`, not the copies, and to resync manually after changes.
@@ -70,14 +74,14 @@ Before writing/editing any paper section, generating a scientific figure, adding
 - **Never use Docker** — scope decision already made for the LARS/LAFusion papers.
 - **Always `python3`**, never `python`.
 - Compile LaTeX papers: `pdflatex -interaction=nonstopmode main.tex` — run **twice** (cross-references only resolve on the 2nd pass). Count pages: `pdfinfo main.pdf | grep Pages`.
-- Bring up the multi-robot pipeline: `./launch/launch_3robots_with_camera.sh`, wait **70s+** before running any other node (Nav2 takes a while to stabilize).
+- Bring up the multi-robot pipeline: `./launch/launch_3robots_with_camera.sh`, wait **70s+** before running any other node (Nav2 takes a while to stabilize). Full production run (one terminal each, `scripts/prepare_validation.sh {baseline|ppo}` prints this same sequence and kills stale processes first): (1) `launch/launch_3robots_with_camera.sh` → (2) wait 70s+ → (3) `ros2 run cerise_nav demand_generator` → (4) `ros2 run cerise_nav task_allocator` (nearest-free baseline) or `ros2 run cerise_nav rl_task_allocator --ros-args -p model_path:=$PWD/models/ppo_allocator_yolo.zip` (trained PPO) → (5) `ros2 run cerise_nav yolo_detector`.
 - Stuck Gazebo/Nav2 zombie nodes: `pkill -9 component_container` before relaunching — restarting without this leaves DDS ports held.
 - If a ROS2 node keeps logging but no CLI subscriber receives anything (even with compatible QoS), that process's DDS state is stuck — kill and relaunch it, no need to restart the whole environment. **Caveat**: confirming `ros2 topic hz` looks healthy right after a relaunch does not guarantee publication stays stable through a subsequent `ros2 bag record` — always check the actual message count in the recorded bag, don't trust a prior `hz` check alone.
 
 ## Git
 
 - **Never include `Co-Authored-By: Claude`** in commits — explicit user preference.
-- Always check `git status` before a broad `git add` — the repo accumulates loose files from old sessions (e.g. `docs/RSL/`, `docs/paper_lars/`) that shouldn't be committed without confirming what they are first.
+- Always check `git status` before a broad `git add` — the repo has repeatedly accumulated loose files from old sessions that shouldn't be committed without confirming what they are first (e.g. `docs/RSL/`, 34MB of third-party literature-review PDFs, was found committed and untracked in a 2026-08-24 cleanup).
 
 ## Environment (Wayland/GNOME + VSCode snap)
 
