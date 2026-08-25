@@ -28,9 +28,8 @@ from rosbag2_py import ConverterOptions, SequentialReader, StorageOptions
 from geometry_msgs.msg import PoseArray
 from nav_msgs.msg import Odometry
 
-_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, os.path.join(_REPO, 'src', 'cerise_nav'))
-sys.path.insert(0, os.path.join(_REPO, 'scripts'))
 
 from cerise_nav.association import mahalanobis_gate  # noqa: E402
 from cerise_nav.ekf_core import correct as _core_correct  # noqa: E402

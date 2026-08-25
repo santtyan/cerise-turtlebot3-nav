@@ -13,8 +13,9 @@ import os
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 
-OUT_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                         'docs', 'lafusion_architecture.png')
+OUT_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    'docs', 'lafusion_architecture.png')
 
 plt.rcParams.update({
     'font.family': 'serif',

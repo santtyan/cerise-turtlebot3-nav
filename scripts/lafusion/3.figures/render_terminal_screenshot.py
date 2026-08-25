@@ -3,8 +3,8 @@
 para uso como figura no paper (evidência de execução real).
 
 Uso:
-    python3 scripts/render_terminal_screenshot.py --preset validation
-    python3 scripts/render_terminal_screenshot.py --preset ekf_live
+    python3 scripts/lafusion/3.figures/render_terminal_screenshot.py --preset validation
+    python3 scripts/lafusion/3.figures/render_terminal_screenshot.py --preset ekf_live
 """
 
 import argparse
@@ -14,7 +14,7 @@ import sys
 
 from PIL import Image, ImageDraw, ImageFont
 
-_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 BG = (30, 30, 30)
 TITLEBAR_BG = (50, 50, 50)
@@ -110,12 +110,12 @@ def render(lines, title_text, prompt, colorize_fn, out_path):
 
 def preset_validation():
     result = subprocess.run(
-        [sys.executable, os.path.join(_REPO, 'scripts', 'validate_ekf_synthetic.py')],
+        [sys.executable, os.path.join(_REPO, 'scripts', 'lafusion', '1.validation', 'validate_ekf_synthetic.py')],
         capture_output=True, text=True, cwd=_REPO)
     lines = result.stdout.rstrip('\n').split('\n')
     out_path = os.path.join(_REPO, 'docs', 'lafusion_validation_terminal.png')
-    render(lines, 'python3 scripts/validate_ekf_synthetic.py',
-           '$ python3 scripts/validate_ekf_synthetic.py',
+    render(lines, 'python3 scripts/lafusion/1.validation/validate_ekf_synthetic.py',
+           '$ python3 scripts/lafusion/1.validation/validate_ekf_synthetic.py',
            colorize_line_validation, out_path)
 
 

@@ -71,7 +71,7 @@ mean_error≈0.03m` continuamente.
 ### 3. (Opcional) Recalibrar a câmera do zero
 
 ```bash
-python3 scripts/calibrate_camera.py
+python3 scripts/lafusion/0.setup/calibrate_camera.py
 ```
 
 Gera `camera_calibration.npz` na raiz do repo. **Nota de honestidade
@@ -92,7 +92,7 @@ ros2 bag record -o <nome> --storage mcap --use-sim-time \
 ### 5. Validar o EKF sinteticamente (sem depender do Gazebo)
 
 ```bash
-python3 scripts/validate_ekf_synthetic.py
+python3 scripts/lafusion/1.validation/validate_ekf_synthetic.py
 ```
 
 Deve reportar NEES≈3.0 e NIS≈2.0 (dentro de ~1-2% de erro relativo, ver nota
@@ -102,8 +102,8 @@ excessivamente rigoroso com muitas amostras agregadas).
 ### 6. Rodar a avaliação completa (EKF vs. baseline vs. ground truth)
 
 ```bash
-python3 scripts/eval_ekf_vs_baseline.py       # Tabela 1 (correction-instant), com RMSE
-python3 scripts/eval_ekf_continuous_error.py  # Tabela 2 (continuous error), com RMSE
+python3 scripts/lafusion/2.evaluation/eval_ekf_vs_baseline.py       # Tabela 1 (correction-instant), com RMSE
+python3 scripts/lafusion/2.evaluation/eval_ekf_continuous_error.py  # Tabela 2 (continuous error), com RMSE
 ```
 
 O primeiro reproduz a Tabela 1 do paper (3 condições: sem drift, drift
@@ -172,9 +172,9 @@ enganosos fora de contexto.
 
 5. **A lógica do EKF (predict/correct, `Q`, teto de covariância) está
    duplicada em 3 arquivos**: `src/cerise_nav/cerise_nav/ekf_fusion_node.py`
-   (nó ROS2 de produção), `scripts/eval_ekf_vs_baseline.py` e
-   `scripts/eval_ekf_continuous_error.py` (avaliação offline sobre os
-   bags), e `scripts/validate_ekf_synthetic.py` (validação sintética) —
+   (nó ROS2 de produção), `scripts/lafusion/2.evaluation/eval_ekf_vs_baseline.py` e
+   `scripts/lafusion/2.evaluation/eval_ekf_continuous_error.py` (avaliação offline sobre os
+   bags), e `scripts/lafusion/1.validation/validate_ekf_synthetic.py` (validação sintética) —
    cada um reimplementa a mesma matemática com nomes de método diferentes,
    em vez de importar de um módulo único compartilhado. Limitação de
    engenharia conhecida, não corrigida por risco de invalidar resultados já

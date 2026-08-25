@@ -7,10 +7,58 @@ Simula 2 TurtleBot3 Waffle com navegação autônoma (Nav2), coleta dataset de i
 > **Trabalho de fusão sensorial (EKF)**: este repositório também contém um
 > segundo trabalho, independente deste README — um Extended Kalman Filter
 > fundindo detecção YOLO e odometria para localização multi-robô (paper
-> LAFusion 2026). Código em `src/cerise_nav/cerise_nav/ekf_fusion_node.py`
-> e `scripts/eval_ekf_vs_baseline.py`/`eval_ekf_continuous_error.py`,
-> documentação consolidada em [`docs/lafusion/README.md`](docs/lafusion/README.md),
+> LAFusion 2026). Código em `src/cerise_nav/cerise_nav/ekf_fusion_node.py`;
+> scripts de avaliação/figuras (`eval_ekf_vs_baseline.py`, `eval_ekf_continuous_error.py`,
+> etc.) em `scripts/lafusion/`; documentação consolidada em [`docs/lafusion/README.md`](docs/lafusion/README.md),
 > pacote de reprodutibilidade em [`bags/reproducibility_package/README.md`](bags/reproducibility_package/README.md).
+
+## Roteiros de execução (atuais)
+
+O resto deste README documenta o fluxo histórico de 2 robôs usado para coletar
+o dataset YOLO (seção "Quick Start" abaixo). Os fluxos abaixo são os que os
+papers LARS (RL) e LAFusion (EKF) efetivamente usam hoje.
+
+### 1. Pipeline de produção (Gazebo ao vivo, 3 robôs) — LARS/RL ou baseline
+
+```bash
+# Terminal 1 — sobe Gazebo + 3 robôs + Nav2 + câmera overhead
+./launch/launch_3robots_with_camera.sh
+# aguardar 70s+ (Nav2 estabilizando)
+
+# Terminal 2 — gerador de demandas (tarefas para os robôs)
+ros2 run cerise_nav demand_generator
+
+# Terminal 3 — alocador de tarefas (escolha uma):
+ros2 run cerise_nav task_allocator                    # baseline nearest-free
+ros2 run cerise_nav rl_task_allocator --ros-args -p model_path:=$PWD/models/ppo_allocator_yolo.zip   # PPO treinado
+
+# Terminal 4 — detector YOLO (alimenta EKF/RL com posição via câmera)
+ros2 run cerise_nav yolo_detector
+```
+
+`scripts/prepare_validation.sh baseline` (ou `ppo`) automatiza a limpeza de
+processos zumbis e imprime esse mesmo roteiro formatado.
+
+### 2. Pipeline offline (sem Gazebo) — avaliação/validação do EKF/LAFusion
+
+Não sobe simulação, roda contra dados já gravados ou sintéticos:
+
+```bash
+python3 scripts/lafusion/1.validation/validate_ekf_synthetic.py       # sintético, sem ROS/dados
+python3 scripts/lafusion/2.evaluation/eval_ekf_vs_baseline.py         # contra bags/cenario{1,2,3}_*
+python3 scripts/lafusion/2.evaluation/eval_ekf_continuous_error.py    # idem, métrica de erro contínuo
+```
+
+### 3. Pipeline original (2 robôs, coleta de dataset YOLO)
+
+```bash
+./launch/launch_2robots_with_camera.sh
+python3 scripts/random_nav_goals.py
+ros2 run cerise_nav dataset_collector
+```
+
+Ver "Quick Start" abaixo para o passo a passo completo (incluindo build,
+split do dataset e treino YOLO).
 
 ## Objetivo (Prof. Alisson)
 
@@ -148,7 +196,7 @@ cerise-turtlebot3-nav/
 ├── config/
 │   ├── params_r1.yaml, params_r2.yaml, params_r3.yaml  # Nav2 por robô
 │   ├── dataset.yaml            # Configuração YOLO (train/val split)
-│   └── camera_calibration.npz  # Saída de scripts/calibrate_camera.py
+│   └── camera_calibration.npz  # Saída de scripts/lafusion/0.setup/calibrate_camera.py
 ├── launch/
 │   ├── launch_2robots.sh              # Headless — sem câmera
 │   ├── launch_2robots_with_camera.sh  # Headless + câmera overhead

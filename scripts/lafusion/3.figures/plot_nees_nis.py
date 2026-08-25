@@ -18,8 +18,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy import stats
 
-_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(_REPO, 'scripts'))
+_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(0, os.path.join(_REPO, 'scripts', 'lafusion', '1.validation'))
 
 from validate_ekf_synthetic import generate_synthetic_trajectory, run_filter  # noqa: E402
 

@@ -25,7 +25,7 @@ from cv_bridge import CvBridge
 from gazebo_msgs.srv import DeleteEntity, SpawnEntity
 from sensor_msgs.msg import Image
 
-_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, os.path.join(_REPO, 'src', 'cerise_nav'))
 from cerise_nav.projection import pixel_to_world_simple  # noqa: E402
 

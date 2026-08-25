@@ -19,9 +19,9 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
-_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, os.path.join(_REPO, 'src', 'cerise_nav'))
-sys.path.insert(0, os.path.join(_REPO, 'scripts'))
+sys.path.insert(0, os.path.join(_REPO, 'scripts', 'lafusion', '2.evaluation'))
 
 from cerise_nav.association import mahalanobis_gate  # noqa: E402
 from eval_ekf_vs_baseline import (POS_DRIFT_ODOM, RobotEKF,  # noqa: E402

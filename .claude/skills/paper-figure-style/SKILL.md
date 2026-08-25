@@ -48,7 +48,7 @@ ROS2 Humble, and screen-capture tools fail under this project's
 Wayland/GNOME setup anyway. Generate the equivalent visualization from
 the same topic/bag data in matplotlib instead.
 
-## Visual conventions (already implemented in `scripts/plot_ekf_results.py`)
+## Visual conventions (already implemented in `scripts/lafusion/3.figures/plot_ekf_results.py`)
 
 - Colorblind-safe palette (Okabe-Ito subset): black `#000000` for ground
   truth, blue `#0072B2` for the primary/proposed method, orange-red
@@ -62,7 +62,7 @@ the same topic/bag data in matplotlib instead.
 
 ## Where the reusable plotting code lives
 
-`scripts/plot_ekf_results.py` — `run_scenario_with_trajectory()` already
+`scripts/lafusion/3.figures/plot_ekf_results.py` — `run_scenario_with_trajectory()` already
 returns trajectory, per-instant covariance, and a continuous covariance
 trace with correction timestamps. Reuse this rather than writing a new
 bag-parsing loop for a new figure.

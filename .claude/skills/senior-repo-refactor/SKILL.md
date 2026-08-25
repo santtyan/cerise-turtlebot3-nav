@@ -9,8 +9,8 @@ description: Act as a senior software engineer focused on repository organizatio
 
 Built on 2026-08-24 for the `refactor/unify-ekf-core` branch, which
 deliberately reverses a documented decision: `CLAUDE.md` records the
-three-way EKF duplication (`ekf_fusion_node.py`, `scripts/eval_ekf_vs_baseline.py`
-/ `eval_ekf_continuous_error.py`, `scripts/validate_ekf_synthetic.py`)
+three-way EKF duplication (`ekf_fusion_node.py`, `scripts/lafusion/2.evaluation/eval_ekf_vs_baseline.py`
+/ `eval_ekf_continuous_error.py`, `scripts/lafusion/1.validation/validate_ekf_synthetic.py`)
 as an **accepted limitation, not something to fix opportunistically**,
 because each copy backs a different guarantee (ROS2 production, offline
 evaluation against recorded bags, synthetic Monte Carlo validation) and
@@ -225,8 +225,8 @@ per feature or bugfix), and documentation:
   first, then adds) each inherited method it touches.
 - A script's module docstring should double as its usage message —
   what it does, CLI syntax, env vars, files touched. This project's
-  existing scripts (`scripts/eval_ekf_vs_baseline.py`,
-  `scripts/validate_ekf_synthetic.py`) already follow this shape in
+  existing scripts (`scripts/lafusion/2.evaluation/eval_ekf_vs_baseline.py`,
+  `scripts/lafusion/1.validation/validate_ekf_synthetic.py`) already follow this shape in
   Portuguese; treat that as the working pattern for CERISE, and use
   English for any file actually under the UFG Metaverso standard.
 - Pick one docstring formatting convention per project (Google,

@@ -29,9 +29,8 @@ import sys
 
 import numpy as np
 
-_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, os.path.join(_REPO, 'src', 'cerise_nav'))
-sys.path.insert(0, os.path.join(_REPO, 'scripts'))
 
 from cerise_nav.association import mahalanobis_gate  # noqa: E402
 from eval_ekf_vs_baseline import (POS_DRIFT_ODOM, ROBOTS, RobotEKF,  # noqa: E402

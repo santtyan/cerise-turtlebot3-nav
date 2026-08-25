@@ -1,6 +1,6 @@
 """Etapa de correção do EKF, compartilhada entre produção (ekf_fusion_node.py),
-avaliação offline (scripts/eval_ekf_vs_baseline.py, eval_ekf_continuous_error.py)
-e validação sintética (scripts/validate_ekf_synthetic.py).
+avaliação offline (scripts/lafusion/2.evaluation/eval_ekf_vs_baseline.py, eval_ekf_continuous_error.py)
+e validação sintética (scripts/lafusion/1.validation/validate_ekf_synthetic.py).
 
 Extraído em 2026-08-24 (branch refactor/unify-ekf-core): as 4 implementações
 tinham correct()/r_from_confidence() bit-a-bit idênticas (forma de Joseph,
@@ -31,7 +31,7 @@ def correct(state: np.ndarray, cov: np.ndarray, measurement, R: np.ndarray):
     """Passo de correção do EKF: medição de posição [px, py] (H fixo, 2x3).
 
     Retorna (state_novo, cov_novo, innovation, S) — innovation e S expostos
-    porque scripts/validate_ekf_synthetic.py precisa deles para NEES/NIS.
+    porque scripts/lafusion/1.validation/validate_ekf_synthetic.py precisa deles para NEES/NIS.
 
     Forma de Joseph: preserva simetria e positividade semi-definida de cov
     mesmo sob erro numérico, ao contrário da forma simplificada (I-KH)P, que

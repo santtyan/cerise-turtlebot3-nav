@@ -24,7 +24,7 @@ a casual mention in conversation.** Re-derive it from the source.
 
 1. **For any hyperparameter** (Q, R, thresholds, learning rates, etc.):
    read it directly from the current source file
-   (`scripts/eval_ekf_vs_baseline.py`, `src/cerise_nav/...`) — do not
+   (`scripts/lafusion/2.evaluation/eval_ekf_vs_baseline.py`, `src/cerise_nav/...`) — do not
    trust a comment, a memory file, or a previous paper draft, since
    values get recalibrated between sessions (Q was recalibrated at
    least twice in this project's history).

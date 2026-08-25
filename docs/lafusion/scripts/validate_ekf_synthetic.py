@@ -25,7 +25,8 @@ import numpy as np
 from scipy import stats
 
 sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src', 'cerise_nav'))
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
+    'src', 'cerise_nav'))
 from cerise_nav.ekf_core import correct as _core_correct  # noqa: E402
 from cerise_nav.ekf_core import r_from_confidence as _core_r_from_confidence  # noqa: E402
 

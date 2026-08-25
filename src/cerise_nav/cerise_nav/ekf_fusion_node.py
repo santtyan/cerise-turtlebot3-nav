@@ -3,7 +3,7 @@ obs_source em allocation_env.py/rl_task_allocator.py:146-178.
 
 Estado por robô: [px, py, theta]. Predição via odometria (Q), correção via
 detecção YOLO com R variável por confiança (box.conf[0]). Design validado
-sinteticamente via NEES/NIS em scripts/validate_ekf_synthetic.py (12/08/2026).
+sinteticamente via NEES/NIS em scripts/lafusion/1.validation/validate_ekf_synthetic.py (12/08/2026).
 
 Uso: ros2 run cerise_nav ekf_fusion_node
 """
