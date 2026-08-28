@@ -1,6 +1,6 @@
 ---
 name: critical-presentation-review
-description: Apply an extremely critical, no-blind-spots review to an academic presentation/slide deck for this project (CERISE, LARS, LAFusion) — every claim justified, architecture and benchmarks shown, hard questions pre-empted, Portuguese prose audited for logic and AI-tells. Use whenever building or revising a slide deck, especially before presenting to an advisor or committee. Triggers on requests like "faça um slide", "revise a apresentação", "seja crítico com o slide", "prepare a apresentação para o CERISE".
+description: Apply an extremely critical, no-blind-spots review to an academic presentation/slide deck for this project (CERISE, LARS, LAFusion) — every claim justified, architecture and benchmarks shown, hard questions pre-empted, Portuguese prose audited for logic and AI-tells, plus research-backed visual design (assertion-evidence titles, zero overfull content, appendix/backup slides). Use whenever building or revising a slide deck, especially before presenting to an advisor or committee. Triggers on requests like "faça um slide", "revise a apresentação", "seja crítico com o slide", "prepare a apresentação para o CERISE".
 ---
 
 # Critical Presentation Review
@@ -133,7 +133,23 @@ not as a four-part list.
 1. **Senior logician/grammarian pass (Portuguese)**: read every
    sentence for cohesion, coherence, fluency. Cut sentences that don't
    support the conclusion they announce. Every number needs a unit and
-   a comparison point — no bare numbers.
+   a comparison point — no bare numbers. Concrete patterns found
+   repeatedly in this project's history that a first pass misses because
+   each sentence is individually correct:
+   - **Two clauses glued by a bare comma+"e"** instead of split into
+     separate sentences (e.g. "...torna o modelo quase linear, e o ganho
+     de um UKF seria marginal" reads more naturally as two sentences).
+   - **A trailing gerund clause dangling off an already-long sentence**
+     ("...associa cada detecção ao vizinho mais próximo" tacked onto a
+     sentence that already named the mechanism) — promote it to its own
+     sentence.
+   - **The same verb repeated across adjacent clauses** ("já converte...
+     e publica..." followed immediately by "O EKF publica...") — reads
+     as mechanical repetition even though each use is correct; vary the
+     verb or restructure.
+   - **A qualifier that repeats scope already established by the
+     paragraph** ("...seria marginal nesse caso" when the whole
+     paragraph is already about that one case) — cut it, it adds nothing.
 2. **Conference-reviewer / anti-AI-pattern pass**: strip generative
    filler — chains of "além disso"/"portanto", the antithesis pattern
    ("não X, mas Y" / "não X — Y"), em-dash used as the default
@@ -143,7 +159,147 @@ not as a four-part list.
    AI-generated), empty adjectives ("robusto", "eficiente") with no
    evidence behind them, generic bullet lists with no concrete numbers,
    inflated conclusions not backed by the data shown. Every claim must
-   survive being questioned on the spot.
+   survive being questioned on the spot. Not every "mas" is antithesis —
+   a plain causal contrast ("a abordagem funciona para N=3, mas se dois
+   robôs ficam próximos, a associação pode trocar identidades") is
+   ordinary Portuguese connective tissue, not the AI-tell pattern; don't
+   over-correct by stripping every contrastive conjunction on sight.
+3. **Calibrate explanation level to the stated audience explicitly**,
+   and treat "leigo"/lay audience as ambiguous until the user narrows it.
+   This project's user asked for "público leigo" and, after receiving a
+   fully-lay rewrite (defining EKF, "visão computacional" from scratch,
+   analogies for basic concepts), clarified: "leigo que não conhece o
+   projeto, mas ainda são engenheiros" — jargon (EKF, Mahalanobis,
+   Joseph form, UKF) stays, but *this project's specific design
+   decisions and their reasoning* need spelling out, since that's what a
+   newcomer engineer lacks. The fix was recalibrating, not re-simplifying
+   further: same technical vocabulary, decisions explained instead of
+   assumed. When a user says "leigo" for a technical deck, ask (or infer
+   from context, e.g. an internal engineering audience vs. a general
+   public talk) whether they mean *lay in this domain generally* or *lay
+   in this specific project* — the right rewrite differs substantially.
+
+## The "is this gold-standard?" prompt pattern (added 2026-08-28)
+
+This project's user developed an effective iterative pattern for tightening
+slide prose that's worth recognizing and replaying without waiting to be
+asked again. It repeats per paragraph/claim, in this order:
+
+1. **"Essa frase está confusa/pouco explicativa" / "não está fluido"** —
+   flag one specific sentence, not the whole slide. Fix cohesion/fluency
+   for that sentence alone (see the two-pass review above), without
+   expanding scope to neighboring sentences unless they're actually part
+   of the same problem.
+2. **"Isso é padrão-ouro/estado da arte?"** — before adding more
+   explanation, verify whether the technique named in that sentence
+   (Mahalanobis gating, Joseph form, EKF vs. UKF, Monte Carlo NEES/NIS
+   validation) is actually the field's established best practice, and
+   *why* — not just restate the code's own docstring. Check the
+   project's source (`grep` the comment/reference in the actual `.py`
+   file) before asserting a citation backs it; this project's code
+   docstrings already cite Bar-Shalom, Sinopoli, Chen et al. 2023, etc.,
+   so confirming is usually fast, but never skip the check.
+3. **"Como explicar isso no trecho?"** — only after 1–2 are settled,
+   fold the verified justification into the sentence, in prose, not as a
+   citation dump. This is where a claim moves from "we do X" to "we do X
+   because the field agrees this is correct when Y holds, and our system
+   has Y."
+4. **"Para um leigo isso não está bom" → clarify calibration (see item 3
+   above), then rewrite once, not repeatedly guessing.** If a mechanism
+   explanation ends up attributing the right effect to the wrong cause
+   (e.g. "câmera fixa" as the reason a projection is linear, when the
+   real cause is the camera looking straight down at a flat scene from
+   above — fixed-but-angled would not have the same property), catch and
+   correct the causal claim itself, not just the phrasing. A confident,
+   fluent sentence with the wrong mechanism is worse than an awkward one
+   with the right mechanism.
+5. **"Muito grande" → cut, don't re-explain.** Once content and
+   causality are both verified correct, length cuts should preserve the
+   verified mechanism and drop secondary clauses/examples, not
+   re-derive the explanation from scratch. Expect 2-4 rounds of "menor"
+   before a paragraph reaches presentation length — this is normal for
+   the leigo-mas-engenheiro register (item 3 of the two-pass section),
+   which needs the mechanism spelled out but not padded.
+
+Applying this pattern proactively (checking gold-standard status and
+causal correctness before the user asks) is higher-value than waiting for
+each numbered prompt — but when a user's request matches step 1 or 4
+above, that's the signal to also silently run step 2 (verify against the
+literature/code) before answering, even if they didn't explicitly ask for
+it this time.
+
+## Visual design and cognitive load (research-backed, added 2026-08-28)
+
+The checklist above covers argumentative rigor; these items cover *how the
+slide communicates*, based on a literature review (Alley's assertion-evidence
+model, Mayer's multimedia learning principles, Beamer defense conventions).
+Sources cited inline so claims stay checkable.
+
+11. **Zero overfull boxes before calling a Beamer deck done — this is not
+    cosmetic.** `pdflatex`'s "Overfull \vbox" warning means content is
+    physically rendering past the frame boundary; at least once in this
+    project's history (2026-08-28 session) a 103pt overfull was silently
+    cutting the "why EKF and not UKF" justification and half a module list
+    off the bottom of the slide, invisible in the `.tex` source. Compile,
+    `grep "Overfull \\\\vbox" *.log`, and for anything above ~15pt render
+    that page to an image and look at it — don't trust the point count
+    alone. Fix order (cheapest first): move content to an appendix slide →
+    cut redundant sentences → shrink `\vspace`/table row height → only as
+    last resort shrink font size (already-small text going smaller is often
+    the wrong fix).
+12. **Split a slide instead of shrinking it once two dense elements compete
+    for the same frame** (e.g., a TikZ diagram *and* a paragraph explaining
+    it; two figures *and* two explanatory paragraphs). A rule of thumb: if
+    fixing an overfull requires touching more than one `\vspace` or cutting
+    a full sentence, the slide has too much content for one frame, not too
+    little space.
+13. **Titles on result slides should assert the finding, not name the
+    topic**, per Alley's assertion-evidence model (Alley, Schreiber,
+    Ramsdell & Muffo, *Technical Communication* 53(2), 2006; Garner et al.,
+    *Int. J. Engineering Education* 29(6), 2013 — controlled study, same
+    spoken content, assertion-evidence audiences understood and recalled
+    more, p<.01, effect larger for complex concepts). Concretely: "LARS —
+    Resultado: achado negativo" → "O guloso nearest-free vence o PPO em
+    ~12% no tempo de resposta". Apply this **only to result/finding slides**
+    (typically 4–6 in a two-project deck) — forcing it onto
+    method/architecture slides, which don't have one single claim, reads as
+    artificial. Low cost, high perceived-quality gain; do this before
+    anything else if time is short.
+14. **A defense/progress deck needs a `\appendix` with backup slides**,
+    placed after a closing "Obrigado/Perguntas" frame. Anything that is
+    (a) a legitimate answer to a hard question but not needed to follow the
+    main argument, or (b) the overflow content from item 11/12, belongs
+    here — hyperparameter sweeps, benchmark-not-used justifications,
+    rejected-alternative comparisons (e.g. fading factor vs. covariance
+    clip). In Beamer, frame numbering should exclude the appendix from the
+    displayed total (defense convention: the audience sees "24/24" at the
+    close, backup slides then continue "25/24", "26/24", signaling clearly
+    they're extra) — `\setbeamertemplate{footline}` with a fixed
+    `\LASTFRAME` macro set to the last main-deck frame number is simpler
+    and more robust than trying to capture `\value{framenumber}` at the
+    `\appendix` boundary (that value does not reliably persist across the
+    `\appendix` command in practice — verified failing in this project
+    2026-08-28, do not re-attempt the counter-capture approach without new
+    evidence it works).
+15. **The redundancy principle only penalizes text the presenter reads
+    aloud verbatim while it's also on screen** (Mayer's multimedia learning
+    principles — narration + identical on-screen text splits attention and
+    measurably hurts retention). It does **not** penalize dense reference
+    text the presenter does not narrate — a deck that doubles as a
+    leave-behind document for an advisor is a legitimate use case, not a
+    violation. Don't strip dense slides on sight; check whether the density
+    is presenter-narrated redundancy (cut it) or reference material for
+    later reading (fine as-is, or move to appendix per item 14 if it's
+    fighting for space with an on-screen diagram).
+16. **Don't switch Beamer themes (e.g. `default` → `metropolis`) under time
+    pressure.** `metropolis` needs XeLaTeX/LuaLaTeX plus the Fira font
+    installed to render as intended; falling back to pdfLaTeX degrades it
+    to Computer Modern Sans and loses most of the visual gain, and a theme
+    switch changes every box's metrics — which reintroduces overfull
+    problems just fixed under item 11, and breaks any hand-tuned TikZ
+    `scale=` values. This is a real example of chasing cosmetic polish at
+    the cost of the actual deadline; see "what's not worth doing" framing
+    in `senior-repo-refactor`.
 
 ## Page budget
 

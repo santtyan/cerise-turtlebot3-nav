@@ -22,7 +22,7 @@
 \subtitle{LARS 2026 (alocação de tarefas via RL) e LAFusion 2026 (fusão sensorial via EKF)}
 \author{Yan Santos Leite}
 \institute{Orientador: Prof. Alisson Assis Cardoso \\ Escola de Engenharia Elétrica, Mecânica e de Computação (EMC) — UFG \\ Fundação de Amparo à Pesquisa do Estado de Goiás (FAPEG)}
-\date{25 de agosto de 2026}
+\date{28 de agosto de 2026}
 
 \begin{document}
 
@@ -33,11 +33,11 @@
 
 % ============================================================
 \begin{frame}{Roteiro e visão geral dos dois trabalhos}
-\small Esta apresentação cobre a trajetória completa de dois trabalhos que compartilham a mesma base de código e a mesma plataforma física (três TurtleBot3 no CERISE), mas respondem a perguntas de pesquisa diferentes. Segue nesta ordem: (1) LARS 2026, da concepção à submissão (06/08); (2) LAFusion 2026, da concepção ao estado atual (16/08); (3) uma conclusão com os próximos passos de cada um.
+\small Dois trabalhos que compartilham a base de código e a plataforma física (três TurtleBot3 no CERISE), mas respondem perguntas diferentes. O LARS já foi submetido em 06/08; esta apresentação foca no LAFusion, a sete dias do prazo, e fecha com a conclusão e os próximos passos dos dois.
 
-\vspace{0.25cm}
+\vspace{0.1cm}
 \begin{center}
-\renewcommand{\arraystretch}{1.5}
+\renewcommand{\arraystretch}{1.15}
 \small
 \begin{tabular}{p{3.0cm}p{4.4cm}p{4.4cm}}
 \toprule
@@ -51,174 +51,23 @@ Estado & Submetido no EasyChair em 06/08 & Prazo de submissão 04/09 \\
 \end{tabular}
 \end{center}
 
-\vspace{0.2cm}
-\small Os dois trabalhos compartilham a câmera overhead com detector YOLOv8n, mas usam esse dado de formas opostas: o LARS o consome diretamente como estado observado pelo agente, enquanto o LAFusion pergunta o que fazer quando esse dado \emph{nem sempre está disponível}. Ambos reaproveitam também a mesma bateria de testes estatísticos (\texttt{stats\_tests.py}).
+\small A mesma câmera overhead com YOLOv8n alimenta os dois trabalhos. O LARS trata a posição detectada como dado disponível, no estado do agente. O LAFusion assume o contrário: a detecção às vezes falta, e resolver essa lacuna é o problema central.
 \end{frame}
 
 % ============================================================
 \begin{frame}{Tese, argumentação e contribuições}
 \small
-\textbf{Tese central.} Rigor metodológico — teste causal, fundamentação teórica explícita — sustenta um resultado negativo ou misto melhor do que uma alegação de vitória sem teste.
+\textbf{Tese central.} Nos dois casos, o resultado inesperado vem acompanhado da explicação de por que aconteceu.
 
 \vspace{0.2cm}
 \textbf{Como a tese se sustenta:}
 \begin{itemize}
-\item \textbf{LARS}: testa a hipótese de que RL supera a heurística, encontra o oposto, e usa um experimento causal (\emph{action masking}) para refutar a explicação mais plausível a priori.
-\item \textbf{LAFusion}: mede tanto o ganho de +23,7\% pontual quanto a degradação de $-$12,7\% contínua sob baixa taxa de detecção do YOLO, e explica essa reversão com a teoria prévia de filtragem sob observação intermitente.
+\item \textbf{LARS}: testa a hipótese de que RL supera a heurística, encontra o oposto, e refuta a explicação mais plausível a priori com um experimento causal (\emph{action masking}).
+\item \textbf{LAFusion}: o EKF melhora a posição no instante da correção (+23,7\%), mas piora quando medido de forma contínua ($-$12,7\%). Isso é o comportamento esperado quando o filtro passa muito tempo sem correção, o que explica a piora.
 \end{itemize}
 
 \vspace{0.2cm}
-\textbf{Contribuições:} (1) um gêmeo digital câmera+YOLO validado (mAP@0,5=0,995, erro de 4,7 cm), base comum aos dois trabalhos; (2) um diagnóstico causal de por que o PPO perde em MRTA com $N=3$, isolando o espaço de ação pequeno como fator dominante; (3) uma avaliação do EKF sob baixa taxa de detecção do YOLO em duas frentes: $+23,7\%$ de ganho nos instantes de correção e $-12,7\%$ de erro medido continuamente.
-\end{frame}
-
-% ============================================================
-\section{LARS 2026}
-
-\begin{frame}{LARS — Motivação e arquitetura}
-\small
-\textbf{O problema.} MRTA (\emph{Multi-Robot Task Allocation}: decidir qual robô de uma frota atende cada demanda que chega) é resolvida na prática por heurísticas gulosas, que escolhem o robô livre mais próximo e são míopes a demandas futuras. \textbf{Hipótese:} um PPO com antecipação de duas demandas futuras supera a heurística \emph{nearest-free} em tempo de resposta.
-
-\vspace{0.2cm}
-\begin{center}
-\begin{tikzpicture}[
-  scale=0.85, every node/.style={scale=0.85},
-  node distance=4mm,
-  box/.style={draw, rounded corners, align=center, minimum height=1.0cm, font=\scriptsize, fill=blue!6},
-  lbl/.style={font=\scriptsize, align=left},
-  arr/.style={-{Stealth[length=2mm]}, thick}
-]
-% Treino offline (sem ROS/Gazebo)
-\node[lbl, anchor=west] (trlbl) at (0,1.2) {\textbf{Treino} (offline, sem câmera):};
-\node[box, minimum width=2.4cm, below=2mm of trlbl.west, anchor=north west] (env) {AllocationEnv\\\texttt{rl/allocation\_env.py}};
-\node[box, minimum width=2.1cm, right=of env] (train) {Treina PPO\\(Stable-Baselines3)};
-\node[box, minimum width=2.0cm, right=of train] (model) {Modelo\\salvo (.zip)};
-\draw[arr] (env) -- (train);
-\draw[arr] (train) -- (model);
-
-% Inferência em produção
-\node[lbl, anchor=west] (inflbl) at (0,-1.3) {\textbf{Inferência} (produção, ROS2):};
-\node[box, minimum width=2.1cm, below=2mm of inflbl.west, anchor=north west] (cam) {Câmera overhead};
-\node[box, minimum width=2.4cm, right=of cam] (yolo) {YOLOv8n\\\texttt{yolo\_detector.py}\\\texttt{/robot\_detections}};
-\node[box, minimum width=2.4cm, right=of yolo] (ppo) {\texttt{rl\_task\_allocator.py}\\(carrega o modelo)};
-\node[box, minimum width=2.2cm, right=of ppo] (nav2) {Nav2 $\rightarrow$ TurtleBot3};
-\draw[arr] (cam) -- (yolo);
-\draw[arr] (yolo) -- (ppo);
-\draw[arr] (ppo) -- (nav2);
-\draw[arr, dotted] (model) -- (ppo);
-\node[box, minimum width=2.4cm, below=6mm of ppo, fill=orange!8] (baseline) {\texttt{task\_allocator.py} (nearest-free)};
-\draw[arr, dashed] (yolo.south) -- (baseline.north west);
-\draw[arr, dashed] (baseline) -- (ppo.south);
-\end{tikzpicture}
-\end{center}
-
-\vspace{0.15cm}
-\scriptsize\texttt{rl/allocation\_env.py} é um ambiente Gymnasium (a biblioteca padrão para treino de RL: define \texttt{reset()} e \texttt{step(ação)}, que qualquer algoritmo — aqui o PPO — sabe treinar contra) do tipo \emph{analítico}, sem ROS nem Gazebo: seu \texttt{step()} é aritmética pura, treina 500k timesteps em minutos em vez de dias, e não recebe nenhum dado de câmera. Gymnasium suporta renderização gráfica nativamente (\texttt{render()}), mas este ambiente declara \texttt{render\_modes: []} vazio; por isso a figura de comparação do próximo slide vem de um script à parte. Em produção, \texttt{rl\_task\_allocator.py} carrega o modelo já treinado e consome \texttt{/robot\_detections} diretamente. Já \texttt{task\_allocator.py} implementa a heurística baseline (linha tracejada no diagrama).
-\end{frame}
-
-% ============================================================
-\begin{frame}{LARS — Gêmeo digital: erro de localização câmera+YOLO}
-\begin{columns}[T]
-\begin{column}{0.5\textwidth}
-\centering
-\includegraphics[width=\textwidth]{figures/fig_digitaltwin.png}
-\end{column}
-\begin{column}{0.5\textwidth}
-\small
-\begin{tabular}{ll}
-mAP@0.5 & \textbf{0,995} \\
-Erro estático & 1,24 cm \\
-Erro dinâmico & \textbf{4,7 cm} \\
-Det. $<$15 cm & 100\% \\
-\end{tabular}
-
-\vspace{0.3cm}
-\small É o erro dinâmico de 4,7 cm (rastreio contínuo), não o estático, que alimenta os experimentos seguintes. O salto entre os dois regimes vem de motion blur e de latência — o detector em si mede bem tanto parado quanto em movimento. Verdade e predição seguem bem comportadas mesmo com múltiplos robôs próximos, evidência qualitativa contra outliers que a média poderia esconder.
-\end{column}
-\end{columns}
-\end{frame}
-
-% ============================================================
-\begin{frame}{LARS — Por que PPO $\neq$ nearest-free na prática}
-\centering
-\includegraphics[width=0.85\textwidth]{figures/fig_allocation_compare.png}
-
-\small Mesmo estado (3 robôs, mesma demanda D), gerado a partir do \texttt{AllocationEnv} real. À esquerda, \emph{nearest\_free} escolhe sempre o robô livre mais próximo, por construção (R2); à direita, o PPO treinado antecipa as 2 próximas demandas da fila e pode escolher diferente (R1). É essa divergência de decisão que a hipótese central do LARS testa.
-\end{frame}
-
-% ============================================================
-\begin{frame}{LARS — Formulação do MDP e protocolo experimental}
-\scriptsize
-\textbf{Estado (21D):} $3N+4+4\times2$ para $N=3$ — a posição e o tempo livre de cada robô, a origem e o destino da demanda atual, e a origem e o destino das \textbf{2 próximas demandas} já visíveis na fila. Essa antecipação é o que permite à política decidir \emph{``segurar''} um robô livre à espera de uma demanda melhor. \textbf{Ação:} escolha discreta de qual robô atende a demanda. \textbf{Recompensa:} $r = -(t_{espera}+t_{viagem})$, o \emph{tempo de resposta} completo. A formulação original penalizava só o tempo de viagem — um bug de causa-raiz corrigido antes do primeiro resultado válido.
-
-\vspace{0.2cm}
-\textbf{Treino:} PPO via Stable-Baselines3, com hiperparâmetros padrão (lr $3\times10^{-4}$, $\gamma=0,99$, 8 envs paralelos, seed 42) e 500k timesteps ($\sim$2h de CPU). Esses defaults isolam o efeito da fonte de observação e do masking; buscar o teto de desempenho do próprio PPO fica para trabalho futuro.
-
-\textbf{Estatística:} 1000 episódios pareados, com Wilcoxon signed-rank, Cliff's $\delta$ e IC 95\% bootstrap. O pareamento é necessário porque, em RL profundo, a variância entre sementes já produz diferenças significativas por conta própria.
-
-\textbf{Robustez:} 6 regimes de carga (30s–10s), 500 episódios por ponto. \textbf{Por que PPO e não SAC/DQN:} o experimento isola o efeito da fonte de observação e do masking sobre um único algoritmo. PPO é o padrão de fato em SB3 e tem suporte nativo a masking (MaskablePPO), necessário para o teste causal a seguir.
-\end{frame}
-
-% ============================================================
-\begin{frame}{LARS — Resultado: achado negativo e robustez}
-\begin{columns}[T]
-\begin{column}{0.5\textwidth}
-\scriptsize
-\begin{tabular}{lccc}
-\toprule
-\textbf{Política} & \textbf{Resp.} & \textbf{p95} & \textbf{Desbal.} \\
-\midrule
-Nearest-free & \textbf{17,86 s} & \textbf{27,77 s} & 0,149 \\
-PPO (YOLO) & 20,01 s & 29,46 s & \textbf{0,135} \\
-PPO (odom) & 19,83 s & 29,37 s & \textbf{0,135} \\
-\bottomrule
-\end{tabular}
-
-\vspace{0.15cm}
-Carga moderada, 1000 episódios pareados, Wilcoxon $p<0{,}001$. \textbf{O guloso vence}: o tempo de resposta do PPO é $\sim$\textbf{12\% pior}. A proximidade entre PPO(YOLO) e PPO(odom) indica que o ruído do gêmeo digital é só um efeito de segunda ordem — a causa principal está em outro lugar.
-
-\vspace{0.1cm}
-\includegraphics[width=\textwidth]{figures/fig_load.png}
-\end{column}
-\begin{column}{0.5\textwidth}
-\centering
-\includegraphics[width=0.85\textwidth]{figures/fig_boxplot_3policies.png}
-
-\vspace{0.1cm}
-\scriptsize O boxplot mostra uma razão p95/média comparável entre as políticas ($\approx$1,47--1,56): a desvantagem do PPO vem de um deslocamento de toda a distribuição, e não de uma cauda catastrófica isolada. Sob carga, o gap encolhe de +19,0\% para +7,7\%, mas o guloso permanece mais rápido em todo o intervalo testado.
-\end{column}
-\end{columns}
-
-\vspace{0.1cm}
-\scriptsize \textbf{Enquadramento:} a contribuição aqui é essa caracterização. Um resultado negativo testado e explicado é mais informativo do que uma alegação positiva sem teste.
-\end{frame}
-
-% ============================================================
-\begin{frame}{LARS — Diagnóstico causal, limitações e fechamento}
-\tiny
-\textbf{Três explicações investigadas:} (1) restrição suave vs. rígida — o guloso nunca escolhe robô ocupado, por construção, enquanto o PPO erra em \textbf{4,2\%} das decisões contra \textbf{0,3\%} do guloso ($\sim$13$\times$ mais), o maior contribuinte isolado; (2) espaço de ação pequeno — com $N=3$, no máximo três alternativas por decisão; (3) orçamento de treino — aprendizado claro, mas sem convergência.
-
-\vspace{0.15cm}
-\textbf{Teste causal:} PPO(YOLO, masked), com ação restrita a robôs livres via \emph{action masking} (MaskablePPO), sob os mesmos hiperparâmetros e orçamento.
-\begin{center}
-\begin{tabular}{lcc}
-\toprule
- & \textbf{Sem masking} & \textbf{Com masking} \\
-\midrule
-Taxa de ação inválida & 4,2\% & \textbf{0,0\%} \\
-Gap vs. guloso & $\sim$12\% & $\sim$11\% \\
-Cliff's $\delta$ vs. guloso & 0,703 & 0,636 \\
-\bottomrule
-\end{tabular}
-\end{center}
-\textbf{Hipótese causal refutada:} o masking zera a taxa de ação inválida, mas o gap melhora só $\sim$1 ponto percentual. O peso da explicação volta então para o espaço de ação pequeno e para o orçamento de treino.
-
-\vspace{0.15cm}
-\textbf{Limitações assumidas:} (1) hiperparâmetros padrão do PPO, aquém do teto possível do RL para o problema; (2) resultados válidos para $N=3$, sem extrapolação para frotas grandes; (3) ausência de validação em hardware físico; (4) 500k timesteps sem convergência. Todas são alvo direto de trabalho futuro.
-
-\textbf{Revisão de literatura:} 330 estudos triados (Scopus, IEEE, arXiv, ACM), resultando em \textbf{117 aceitos e 213 rejeitados}. \textbf{Submissão:} 06/08/2026, no EasyChair, com aceite previsto para \textbf{15/09/2026}. O próprio título já declara o método (\emph{Causal Diagnosis...}), sem alegar vitória do RL.
-
-\vspace{0.1cm}
-\textbf{Por que um segundo paper:} o LARS usa a posição do YOLO como estado observado, mas nunca pergunta o que fazer quando a detecção não está disponível. Em produção, um \textbf{fallback discreto} descarta essa informação, sem correção parcial e sem propagação formal de incerteza. \textbf{A pergunta do LAFusion:} como se comporta um EKF que funde as duas fontes probabilisticamente, quando a taxa de detecção do YOLO é baixa?
+\textbf{Contribuições:} (1) um gêmeo digital câmera+YOLO validado (mAP@0,5=0,995, erro de 4,7 cm), base comum aos dois trabalhos; (2) a causa de o PPO perder para a heurística na alocação de tarefas entre 3 robôs: o espaço de ação pequeno; (3) uma avaliação do EKF sob baixa taxa de detecção do YOLO em duas frentes: $+23,7\%$ de ganho nos instantes de correção e $-12,7\%$ de erro medido continuamente.
 \end{frame}
 
 % ============================================================
@@ -227,70 +76,60 @@ Cliff's $\delta$ vs. guloso & 0,703 & 0,636 \\
 \begin{frame}{LAFusion — Arquitetura e pipeline}
 \begin{center}
 \begin{tikzpicture}[
-  scale=0.82, every node/.style={scale=0.82},
-  node distance=5mm,
-  box/.style={draw, rounded corners, align=center, minimum height=1.1cm, font=\tiny, fill=blue!6},
+  scale=0.72, every node/.style={scale=0.72},
+  node distance=4mm,
+  box/.style={draw, rounded corners, align=center, minimum height=1.0cm, font=\tiny, fill=blue!6},
   arr/.style={-{Stealth[length=2mm]}, thick}
 ]
 \node[box, minimum width=1.7cm] (cam) {Câmera\\overhead fixa};
 \node[box, minimum width=2.6cm, right=of cam, fill=blue!12] (yolo) {\texttt{yolo\_detector.py}\\YOLOv8n + \texttt{projection.py}\\\texttt{/robot\_detections}};
-\node[box, minimum width=2.3cm, right=of yolo] (assoc) {Associação\\\texttt{association.py}\\(gating Mahalanobis)};
-\node[box, minimum width=2.0cm, right=of assoc] (ekf) {EKF por robô\\\texttt{ekf\_fusion\_node.py}};
+\node[box, minimum width=2.4cm, right=of yolo] (ekf) {EKF por robô\\\texttt{ekf\_fusion\_node.py}};
 \node[box, minimum width=1.7cm, right=of ekf] (pose) {Pose\\fundida};
 \node[box, minimum width=1.7cm, below=9mm of ekf, fill=green!8] (odom) {Odometria\\(predição)};
+\node[box, minimum width=2.6cm, above=8mm of ekf, fill=red!8] (core) {\texttt{ekf\_core.py}\\correção compartilhada\\(prod.+avaliação+sintético)};
+\node[box, minimum width=2.6cm, below=9mm of core, right=8mm of core, fill=yellow!12] (assoc) {\texttt{association.py}\\gating por distância de\\Mahalanobis ($P\!+\!R$, não metros)};
 \draw[arr] (cam) -- (yolo);
-\draw[arr] (yolo) -- (assoc);
-\draw[arr] (assoc) -- (ekf);
+\draw[arr] (yolo) -- (ekf);
 \draw[arr] (ekf) -- (pose);
 \draw[arr] (odom) -- (ekf);
 \draw[arr, dashed] (odom.east) -| (pose.south);
+\draw[arr, dotted] (core) -- (ekf);
+\draw[arr, dotted] (assoc) -- (ekf);
 \end{tikzpicture}
 \end{center}
 
 \vspace{0.1cm}
-\scriptsize\texttt{yolo\_detector.py} já converte pixel$\to$mundo (via \texttt{projection.py}) antes de publicar \texttt{/robot\_detections} — \texttt{association.py} e \texttt{ekf\_fusion\_node.py} nunca importam \texttt{projection.py} diretamente. A seta tracejada mostra que o EKF publica pose a cada leitura de odometria (predição), não só após uma correção YOLO bem-sucedida.
+\scriptsize\texttt{yolo\_detector.py} já converte pixel$\to$mundo (via \texttt{projection.py}) antes de publicar \texttt{/robot\_detections}. A seta tracejada mostra que o EKF publica pose a cada leitura de odometria (predição), não só após uma correção YOLO. \texttt{association.py} e \texttt{ekf\_core.py} não são nós ROS2 à parte: são módulos importados e chamados de dentro do próprio \texttt{ekf\_fusion\_node.py} (setas pontilhadas). \texttt{association.py} faz o gating de Mahalanobis por vizinho mais próximo (não JPDA nem Hungarian), suficiente para $N=3$ mas com risco de troca de identidade se dois robôs ficarem muito próximos. \texttt{ekf\_core.py} concentra a correção (forma de Joseph), reaproveitada por produção, avaliação offline e validação sintética.
 
-\vspace{0.15cm}
-\textbf{Módulos reais do código:}
-\begin{itemize}
-\item \texttt{ekf\_fusion\_node.py}: nó ROS2 de produção, com um EKF independente por robô — predição via odometria, correção via detecção YOLO.
-\item \texttt{association.py}: gating de Mahalanobis (distância que pondera o erro entre detecção e posição estimada pela covariância $P+R$ do filtro, em vez de metros brutos — evita que um robô ``roube'' a detecção de outro só por estar mais perto em linha reta), compartilhado entre o EKF e o nó de avaliação offline.
-\item \texttt{projection.py}: projeção pixel$\leftrightarrow$mundo usada dentro de \texttt{yolo\_detector.py}, com duas implementações (heurística por FOV e via intrínsecos calibrados) confirmadas geometricamente equivalentes.
-\end{itemize}
-
-\vspace{0.3cm}
-\textbf{Por que EKF, e não UKF ou filtro de partículas:} o modelo de observação da câmera é quase linear, já que é uma projeção pinhole numa cena essencialmente planar. O ganho de um UKF, que mira a não-linearidade do modelo de observação, seria marginal aqui. O problema central deste trabalho é a \emph{taxa} de observação, não a forma do modelo, e nenhuma dessas alternativas resolve isso — detalhamos essa distinção dois slides à frente.
+\vspace{0.1cm}
+\small\textbf{Por que EKF, e não UKF ou filtro de partículas:} o modelo de observação da câmera é quase linear (projeção pinhole numa cena planar), então o ganho de um UKF seria marginal. O problema central aqui é a \emph{taxa} de observação, não a forma do modelo.
 \end{frame}
 
 % ============================================================
-\begin{frame}{LAFusion — Design do EKF}
-\textbf{Estado:} $x_k = [p_x, p_y, \theta]^\top$ por robô. A predição integra o \emph{delta} de leituras consecutivas de odometria sobre o estado atual, e não o valor absoluto — isso preserva correções visuais anteriores, que seriam descartadas a cada ciclo se usássemos o valor absoluto.
-
-\vspace{0.3cm}
-\textbf{Hiperparâmetros e sua origem:}
-\begin{itemize}
-\item $Q = \text{diag}(0{,}5,\ 0{,}5,\ 0{,}25)$, calibrado empiricamente contra dados reais numa varredura de $10^{-6}$ a $1{,}0$: o ganho cresce monotonicamente até saturar em $Q\geq0{,}5$.
-\item Teto de covariância $\text{clip}(P, -\infty, 0{,}05)$. Sem ele, $P$ cresce sem limite em intervalos longos sem correção (chegamos a observar traço $\approx$85 contra o esperado $\approx$0,5), o que quebra o gating de Mahalanobis ao alargar a região de aceitação até um robô \emph{``roubar''} a detecção do vizinho.
-\item Limiar de gating $d^2 \leq 9{,}21$, o valor padrão do teste $\chi^2$ com 2 graus de liberdade a 99\% de confiança.
-\item Atualização de $P$ pela \textbf{forma de Joseph} $(I-KH)P(I-KH)^\top + KRK^\top$, e gating com $S=P+R$: duas correções de rigor numérico aplicadas nesta sessão (17/08/2026) que reproduzem exatamente os mesmos resultados já publicados.
-\end{itemize}
-
-\vspace{0.15cm}
-\scriptsize \emph{Por que o teto de covariância existe:} ele mantém a associação estável, mas a estimativa de estado em si segue imprecisa durante o intervalo sem correção — uma distinção central para o achado do próximo bloco de slides.
-
-\vspace{0.05cm}
-\scriptsize \emph{Por que o clip, e não um fading factor (AFKF) mais correto teoricamente:} testamos essa alternativa. Sem teto, ou com um teto generoso o bastante para diferir do clip, $P$ cresce o suficiente para o próprio gating de Mahalanobis aceitar detecções erradas — o mesmo modo de falha que o clip existe para evitar. O ganho sob drift agressivo caiu de $+23{,}7\%$ (com clip) para $-16{,}5\%$ (com fading sem teto): o clip vence empiricamente, mesmo sendo a solução mais simples.
-\end{frame}
-
-% ============================================================
-\begin{frame}{LAFusion — Testes e validação}
+\begin{frame}{LAFusion — Design do EKF e validação}
 \begin{columns}[T]
-\begin{column}{0.42\textwidth}
-\small
-\textbf{Validação sintética (antes de qualquer dado real):} Monte Carlo com 30 sementes, 2000 passos cada, contra trajetória sintética com verdade terrestre conhecida.
-
-\vspace{0.15cm}
+\begin{column}{0.54\textwidth}
 \scriptsize
+\textbf{Estado:} $x_k=[p_x,p_y,\theta]^\top$ por robô. A predição integra o \emph{delta} de odometria, não o valor absoluto, preservando correções visuais anteriores.
+
+\vspace{0.1cm}
+\textbf{Hiperparâmetros e sua origem:}
+\begin{itemize}\scriptsize\itemsep1pt
+\item $Q=\text{diag}(0{,}5,\,0{,}5,\,0{,}25)$: calibrado contra dados reais, ganho satura em $Q\geq0{,}5$.
+\item Teto $\text{clip}(P,-\infty,0{,}05)$: sem ele $P$ cresce sem limite (traço $\approx$85) e quebra o gating, deixando um robô ``roubar'' a detecção do vizinho.
+\item Gating $d^2\leq9{,}21$: padrão do $\chi^2$ com 2 g.l.\ a 99\%.
+\item Forma de Joseph e gating com $S=P+R$: rigor numérico, reproduzem os resultados publicados.
+\end{itemize}
+
+\vspace{0.1cm}
+\emph{Por que o teto existe:} mantém a associação estável, mas o estado segue impreciso sem correção. Um \emph{fading factor} (AFKF), teoricamente melhor, foi testado e perde: o ganho sob drift agressivo cai de $+23{,}7\%$ para $-16{,}5\%$.
+\end{column}
+\begin{column}{0.46\textwidth}
+\scriptsize
+\textbf{Validação sintética, antes de qualquer dado real:} Monte Carlo, 30 sementes, 2000 passos, contra verdade terrestre conhecida.
+
+\vspace{0.1cm}
+\begin{center}
 \begin{tabular}{lcc}
 \toprule
 \textbf{Estat.} & \textbf{Obtido} & \textbf{Esperado} \\
@@ -299,115 +138,62 @@ NEES & 2,955 & 3,0 (1,5\%) \\
 NIS & 1,982 & 2,0 (0,9\%) \\
 \bottomrule
 \end{tabular}
-
-\vspace{0.15cm}
-\small\emph{Por que validar sinteticamente antes do dado real:} isso isola bugs de implementação de problemas de dado — um filtro mal calibrado contra dados sintéticos jamais seria confiável contra dados reais, ainda mais ruidosos.
-\end{column}
-\begin{column}{0.58\textwidth}
-\centering
-\includegraphics[width=\textwidth]{figures/lafusion_nees_nis.png}
-
-\scriptsize NEES/NIS ao longo dos 2000 passos, com o valor esperado teórico e a faixa de confiança de 95\% \emph{por amostra individual} (mais larga que o critério da média agregada da tabela — os picos que chegam perto do teto são esperados nessa escala, não uma inconsistência). A tabela ao lado mostra só a média agregada das 30 sementes; esta figura confirma que a consistência do filtro se mantém estável do início ao fim da corrida, e não apenas num regime transitório inicial, antes de aplicá-lo aos dados reais.
-\end{column}
-\end{columns}
-
-\vspace{0.2cm}
-\small\textbf{Dados reais:} 3 cenários gravados no Gazebo (parado, reto, curva/oclusão), com 3 robôs e sincronização de timestamp verificada — nenhum gap acima de 500ms.
-
-\vspace{0.15cm}
-\scriptsize\textbf{Sobre benchmarks públicos:} não avaliamos contra UTIAS MRCLAM ou S3E, pois ambos assumem sensor embarcado em cada robô (range-bearing ou LiDAR/estéreo/IMU onboard); nosso cenário usa câmera externa fixa, mais próximo de um ambiente instrumentado do que de SLAM cooperativo. Até onde sabemos, não há dataset público que combine câmera externa fixa, YOLO e múltiplos robôs terrestres como alvos — o que motiva o dataset próprio liberado com este trabalho.
-\end{frame}
-
-% ============================================================
-\begin{frame}{LAFusion — Resultado principal}
-\begin{columns}[T]
-\begin{column}{0.56\textwidth}
-\begin{table}
-\scriptsize
-\begin{tabular}{lcccc}
-\toprule
-\textbf{Drift} & \textbf{Méd. EKF/Odom} & \textbf{$\Delta$} & \textbf{RMSE EKF/Odom} & \textbf{$\Delta$RMSE} \\
-\midrule
-Nenhum & 0,036/0,000 & N/A & 0,052/0,000 & N/A \\
-Leve & 0,053/0,050 & $-5,3\%$ & 0,068/0,066 & $-2,1\%$ \\
-Agressivo & 0,128/0,168 & \textbf{+23,7\%} & 0,163/0,195 & \textbf{+16,7\%} \\
-\bottomrule
-\end{tabular}
-\caption{\scriptsize Erro de posição (m) nos instantes de correção YOLO, 3 cenários ($n=1323$). Wilcoxon $p<0{,}001$ sob drift agressivo.}
-\end{table}
-
-\small Sob drift agressivo, o EKF reduz o erro médio em \textbf{+23,7\%} frente à odometria pura.
-
-\vspace{0.15cm}
-\scriptsize\emph{Por que o ganho é negativo sob drift leve ($-5{,}3\%$):} nesse regime, o erro de detecção visual ($\approx$3–6 cm) ainda é maior que o erro de uma odometria pouco corrompida, então fundir as duas pode até piorar levemente o resultado. Isso é o comportamento esperado de um filtro corretamente calibrado.
-\end{column}
-\begin{column}{0.44\textwidth}
-\centering
-\includegraphics[width=\textwidth]{figures/lafusion_trajectory.png}
-
-\tiny Cenário 2 (reto) sob drift agressivo: EKF (azul) vs. odometria com drift (laranja, tracejada) vs. verdade terrestre (preto). A tabela reduz o ganho a um número agregado; aqui está o mecanismo por trás dele — a odometria se afasta do caminho real enquanto o EKF permanece próximo, evidência qualitativa de que o filtro de fato corrige o drift, além de melhorar a métrica agregada.
-\end{column}
-\end{columns}
-\end{frame}
-
-% ============================================================
-\begin{frame}{LAFusion — Achado central: o erro contínuo}
-\begin{table}
-\scriptsize
-\begin{tabular}{lccccc}
-\toprule
-\textbf{Cenário} & \textbf{Cobertura} & \textbf{Média EKF/Odom} & \textbf{$\Delta$} & \textbf{RMSE EKF/Odom} & \textbf{$\Delta$ RMSE} \\
-\midrule
-Parado & 27,6\% & 0,212 / 0,177 & $-19,3\%$ & 0,246 / 0,205 & $-19,8\%$ \\
-Reto & 11,3\% & 0,212 / 0,178 & $-18,8\%$ & 0,245 / 0,206 & $-19,2\%$ \\
-Curva/oclusão & 0,0\% & 0,178 / 0,178 & $-0,0\%$ & 0,205 / 0,205 & $-0,0\%$ \\
-\textbf{Agregado} & --- & \textbf{0,200 / 0,178} & \textbf{$-12{,}7\%$} & \textbf{0,233 / 0,205} & \textbf{$-13{,}4\%$} \\
-\bottomrule
-\end{tabular}
-\caption{\small Erro medido a CADA leitura de odometria, não só nos instantes de correção ($n=1607$, Wilcoxon $p<0{,}001$).}
-\end{table}
-
-Medido continuamente, o mesmo filtro é \textbf{12,7\% pior} que a odometria pura — o sinal se inverte em relação ao slide anterior. No cenário de 0\% de cobertura, a mudança é exatamente 0,0\%: sem correções, a predição do EKF degenera matematicamente para integração pura de delta-odometria, idêntica à baseline não fundida, o que confirma o mecanismo em vez de ser coincidência.
-
-\vspace{0.15cm}
-\scriptsize\textbf{ATE vs. RPE (Sturm et al. 2012):} o erro acima é ATE, erro absoluto por amostra. O RPE, drift entre passos consecutivos, também piora, mas bem menos ($-4,2\%/-4,8\%$ agregado). Isso indica que a reversão vem sobretudo de erro \emph{acumulando} sob correção esparsa, já que cada passo individual, isoladamente, drifta pouco mais que a odometria.
+\end{center}
 
 \vspace{0.1cm}
-\small \textbf{O ponto do trabalho é justamente reportar as duas métricas, e não só a favorável.}
-\end{frame}
+Isso isola bugs de implementação de problemas de dado: um filtro inconsistente contra dados sintéticos jamais seria confiável contra dados reais.
 
-% ============================================================
-\begin{frame}{LAFusion — Por que o erro contínuo piora (fundamentação teórica)}
-\begin{columns}[T]
-\begin{column}{0.42\textwidth}
-\includegraphics[width=\textwidth]{figures/lafusion_covariance_trace.png}
-\end{column}
-\begin{column}{0.58\textwidth}
-\scriptsize
-A covariância satura no teto quase imediatamente após qualquer intervalo sem correção. Sinopoli et al. (2004) mostram que a covariância diverge abaixo de uma taxa crítica de observação, e nosso cenário de 0\% de cobertura está exatamente no caso-limite $p\to0$. O teto evita esse crescimento ilimitado, mas limita só a \emph{estimativa de incerteza do próprio filtro}: o filtro fica excessivamente confiante na predição só-odometria, enquanto a estimativa de estado em si segue imprecisa. Dissanayake et al. (2001) provam convergência do EKF-SLAM sob observação \emph{densa}, uma premissa que nossa câmera viola por construção (0–28\% de cobertura).
+\vspace{0.1cm}
+\textbf{Dados reais:} 3 cenários no Gazebo (parado, reto, curva/oclusão), 3 robôs, sincronização verificada.
 
-\vspace{0.2cm}
-\textbf{Por que UKF/partículas/IMM não resolvem:} um filtro de partículas degenera para propagação pura, sem verossimilhança para reponderar; um UKF mira a não-linearidade do modelo de observação, que não é o problema aqui; e um IMM ainda precisa de alguma observação para ponderar seus modos concorrentes. A causa raiz é a topologia do sensor — um único ponto de vista, sujeito a oclusão —, não a escolha do filtro.
+\vspace{0.1cm}
+\textbf{Regressão produção vs.\ avaliação:} \texttt{predict()} não é compartilhada entre os dois (modelos de movimento diferentes), então um teste compara numericamente as duas implementações a cada passo, para os mesmos dados de entrada, e falha se divergirem.
 \end{column}
 \end{columns}
 \end{frame}
 
 % ============================================================
-\begin{frame}{LAFusion — Estado atual: correção da calibração de câmera}
-\small
-\textbf{Achado desta sessão (16/08):} a calibração original, com os 4 intrínsecos livres ($f_x,f_y,c_x,c_y$), estava mal-condicionada: $f_x$ ficou 33\% acima do valor geometricamente esperado, apesar de um erro de reprojeção baixo (0,162px).
+\begin{frame}{O mesmo filtro ganha $+23{,}7\%$ na correção e perde $-12{,}7\%$ medido continuamente}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\centering\scriptsize
+\textbf{(a) Nos instantes de correção YOLO}\\[2pt]
+\begin{tabular}{lccc}
+\toprule
+\textbf{Drift} & \textbf{EKF/Odom} & \textbf{$\Delta$} & \textbf{$\Delta$RMSE} \\
+\midrule
+Nenhum & 0,036/0,000 & N/A & N/A \\
+Leve & 0,053/0,050 & $-5,3\%$ & $-2,1\%$ \\
+Agressivo & 0,128/0,168 & \textbf{+23,7\%} & \textbf{+16,7\%} \\
+\bottomrule
+\end{tabular}\\[2pt]
+\raggedright $n=1323$, Wilcoxon $p<0{,}001$ sob drift agressivo.
 
-\vspace{0.15cm}
-\scriptsize \emph{Causa raiz:} com a câmera fixa olhando reto para baixo, o tabuleiro de calibração fica sempre fronto-paralelo ao sensor em todas as poses. Esse é o caso degenerado clássico do método de Zhang (2000) — sem variação de inclinação relativa entre sensor e alvo, $f_x$ e a distância percebida ficam quase linearmente dependentes.
+\vspace{0.1cm}
+\emph{Por que o ganho é negativo sob drift leve:} o erro de detecção visual ($\approx$3–6 cm) ainda supera o de uma odometria pouco corrompida, então fundir as duas fontes piora o resultado. É o comportamento esperado de um filtro bem calibrado.
+\end{column}
+\begin{column}{0.5\textwidth}
+\centering\scriptsize
+\textbf{(b) A cada leitura de odometria}\\[2pt]
+\begin{tabular}{lccc}
+\toprule
+\textbf{Cenário} & \textbf{Cobert.} & \textbf{EKF/Odom} & \textbf{$\Delta$} \\
+\midrule
+Parado & 27,6\% & 0,212/0,177 & $-19,3\%$ \\
+Reto & 11,3\% & 0,212/0,178 & $-18,8\%$ \\
+Curva/ocl. & 0,0\% & 0,178/0,178 & $-0,0\%$ \\
+\textbf{Agregado} & --- & \textbf{0,200/0,178} & \textbf{$-12,7\%$} \\
+\bottomrule
+\end{tabular}\\[2pt]
+\raggedright $n=1607$, Wilcoxon $p<0{,}001$.
 
-\vspace{0.2cm}
-\small\textbf{Correção aplicada:} como a geometria da câmera simulada já era conhecida com precisão (altura e campo de visão nominais exatos), fixamos $f_x,f_y,c_x,c_y$ no valor geométrico nominal e calibramos apenas a distorção. Esse é o remédio padrão quando os intrínsecos nominais já são confiáveis.
+\vspace{0.1cm}
+Com 0\% de cobertura a mudança é exatamente 0,0\%: sem correções o EKF degenera para integração pura de delta-odometria. A coincidência exata confirma o mecanismo.
+\end{column}
+\end{columns}
 
-\vspace{0.2cm}
-\textbf{Resultado:} a calibração corrigida reproduz a projeção heurística já usada em produção a menos de 0,001m de diferença, o que confirma a equivalência geométrica entre as duas. \textbf{Nenhum resultado já publicado no paper muda} — a heurística de produção nunca esteve errada, e só uma calibração alternativa em teste é que estava mal-condicionada.
-
-\vspace{0.2cm}
-\textbf{Estado:} paper com 10 páginas escritas (limite real do CFP é 12), prazo de submissão \textbf{04/09/2026}, formato Springer CCIS, revisão double-blind via Microsoft CMT.
+\vspace{0.1cm}
+\scriptsize\textbf{ATE vs.\ RPE (Sturm et al.\ 2012):} o erro em (b) é ATE, absoluto por amostra; o RPE (drift entre passos consecutivos) piora bem menos ($-4,2\%$), então a reversão vem de erro \emph{acumulando} sob correção esparsa. \textbf{Fundamentação:} Sinopoli et al.\ (2004) mostram que a covariância diverge abaixo de uma taxa crítica de observação, e 0\% de cobertura é o caso-limite $p\to0$; o teto evita o crescimento ilimitado, mas limita só a \emph{incerteza estimada}, deixando o filtro confiante demais na predição só-odometria. Dissanayake et al.\ (2001) provam convergência do EKF-SLAM sob observação \emph{densa}, premissa violada aqui por construção. UKF, partículas e IMM não resolvem: a causa raiz é a topologia do sensor, não a escolha do filtro.
 \end{frame}
 
 % ============================================================
@@ -438,11 +224,14 @@ A covariância satura no teto quase imediatamente após qualquer intervalo sem c
 \end{column}
 \end{columns}
 
-\vspace{0.2cm}
+\vspace{0.1cm}
 \hrule
-\vspace{0.15cm}
-\scriptsize
-\textbf{Conclusão — LARS:} um resultado negativo, testado e explicado causalmente. O \emph{action masking} refuta a explicação mais plausível a priori, redirecionando o diagnóstico para o espaço de ação pequeno e o orçamento de treino. \textbf{LAFusion:} um ganho real nos instantes de correção (+23,7\%), mas mensuravelmente pior que a odometria pura quando avaliado continuamente ($-$12,7\%). A teoria estabelecida de filtragem sob observação intermitente explica essa reversão como comportamento esperado do filtro, e não como falha de implementação. Os dois trabalhos compartilham o mesmo padrão: reportar o resultado completo, favorável ou não, e fundamentá-lo.
+\vspace{0.1cm}
+\tiny
+\textbf{Estado do LAFusion:} 10 páginas escritas (limite do CFP é 12), prazo \textbf{04/09/2026}, Springer CCIS, double-blind via CMT. Em 16/08 a calibração da câmera foi corrigida: com os 4 intrínsecos livres estava mal-condicionada ($f_x$ 33\% acima do esperado), o caso degenerado de Zhang (2000), já que a câmera fixa deixa o tabuleiro sempre fronto-paralelo. Fixamos os intrínsecos no valor nominal e calibramos só a distorção; o resultado reproduz a projeção de produção a menos de 0,001\,m e \textbf{nenhum resultado publicado muda}.
+
+\vspace{0.05cm}
+\textbf{Conclusão:} no LARS, o \emph{action masking} refuta a explicação mais plausível a priori para o resultado negativo e redireciona o diagnóstico para o espaço de ação e o orçamento de treino. No LAFusion, o ganho de +23,7\% na correção convive com uma perda de $-$12,7\% medida continuamente, e a teoria de filtragem sob observação intermitente explica a reversão. Os dois trabalhos reportam o resultado completo e o fundamentam.
 \end{frame}
 
 \end{document}

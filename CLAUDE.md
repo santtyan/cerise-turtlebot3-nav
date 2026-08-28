@@ -18,11 +18,14 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
-There is no unit-test suite beyond `test_e2e_dataset_collector.py` (synthetic, no ROS/Gazebo required):
+There is no `pytest`/`unittest` suite — new checks are standalone scripts, not test files, and each is invoked directly:
 ```bash
-PYTHONPATH=src/cerise_nav python3 test_e2e_dataset_collector.py
+PYTHONPATH=src/cerise_nav python3 test_e2e_dataset_collector.py       # synthetic dataset-collector pipeline, no ROS/Gazebo required
+python3 test_ekf_predict_regression.py                                 # golden-master: production vs. offline-eval predict() must still agree bit-for-bit on their shared 'clip' path
 ```
-Most validation instead happens through standalone scripts in `scripts/` that run against real recorded data or synthetic Monte Carlo trajectories (see Architecture below) — there's no `pytest`/`unittest` convention to follow here; new checks are typically new scripts, not test files.
+`test_ekf_predict_regression.py` (added 2026-08-28) does not import `ekf_fusion_node.py` or `eval_ekf_vs_baseline.py` directly — both require ROS packages (`rclpy`, `rosbag2_py`) not guaranteed available outside a sourced ROS environment, and the `predict()` logic itself has no ROS dependency. It reimplements both `RobotEKF.predict()` verbatim from the current source text of each file and asserts they agree step-by-step on `Q_DIAG`/`COV_CAP`/state/covariance for two synthetic odometry sequences (one at the real ~29Hz robot rate, one at a much smaller dt) — the real-rate sequence alone is insufficient because `COV_CAP=0.05` saturates within a single step at that rate, silently masking any divergence in the `Q` formula itself (found while validating this test — verify a new regression test actually fails before trusting it passes). If either source file's `predict()` changes, update the reimplementation in this test to match, per the comment at the top of the file.
+
+Most validation otherwise happens through standalone scripts in `scripts/` that run against real recorded data or synthetic Monte Carlo trajectories (see Architecture below).
 
 Python deps for the RL/EKF pipeline (no ROS rosdep key) install via `pip install -r requirements.txt` (stable-baselines3, sb3-contrib, gymnasium, scipy, tensorboard).
 
@@ -43,13 +46,15 @@ As of 2026-08-24 (`refactor/unify-ekf-core`), `correct()` and `r_from_confidence
 
 **Covariance ceiling is empirically justified, not just simple.** The `COV_CAP=0.05` clip (`ekf_fusion_node.py`) is mathematically inelegant (breaks PSD structure) — a fading factor (AFKF, scaling `Q` instead of clipping `P`) is the textbook-correct alternative. It was implemented and tested (`scripts/lafusion/2.evaluation/eval_ekf_vs_baseline.py:COV_UPDATE_MODE`, still present as an experimental flag) and **loses empirically**: without a cap, or with one loose enough to differ from the clip, `P` grows enough that Mahalanobis gating starts accepting the wrong robot's detection — the exact failure mode the clip exists to prevent. Gain under aggressive drift dropped from +23.7% (clip) to −16.5% (fading, no cap). Don't re-litigate this without new data.
 
+**The unify-`correct()`-duplicate-`predict()` split is validated against the software-design literature, not just internal convention (2026-08-28 research pass).** DRY (Hunt & Thomas, *The Pragmatic Programmer*) is about one unambiguous representation of a single piece of *knowledge*, not textual similarity — the three `predict()` implementations encode genuinely different motion-model knowledge, so they are not DRY violations. Forcing them into one function (e.g. to also carry the eval-only experimental fading-factor branch) would reproduce the exact anti-pattern Sandi Metz calls "The Wrong Abstraction" (flag/parameter hiding a diverging case). The `ekf_core.py`-outside-ROS / `ekf_fusion_node.py`-as-ROS-wrapper split mirrors a real, current pattern in the ROS2 ecosystem (e.g. `FusionCore`'s `fusioncore_core`/`fusioncore_ros` split, arXiv:2605.25239), not an ad-hoc choice. The one real gap this surfaced — no automated check that production's and offline-eval's `predict()` still agree on their shared "clip" path — is now closed by `test_ekf_predict_regression.py` (see Build and test above); that test does not unify the functions, it's a golden-master/characterization test (Michael Feathers) confirming they still agree, which is the correct-weight fix for a "silent drift" risk, not a reason to revisit the split itself.
+
 ### Where validation actually lives
 
 There's no single test command that proves a pipeline change is correct — validation is split across scripts that target different guarantees:
 - `scripts/lafusion/1.validation/validate_ekf_synthetic.py` — synthetic ground-truth Monte Carlo (30 seeds), checks filter consistency via NEES/NIS before trusting it against real data.
 - `scripts/lafusion/2.evaluation/eval_ekf_vs_baseline.py` / `eval_ekf_continuous_error.py` — EKF vs. odometry-only vs. ground truth, against the three recorded scenarios in `bags/` (stationary/straight/curve, MCAP format — requires `ros-humble-rosbag2-storage-mcap`, not installed by default on Humble).
 - `scripts/lafusion/2.evaluation/stats_tests.py` — statistical toolkit (paired Wilcoxon signed-rank, Cliff's delta, bootstrap CI), currently only imported by `eval_ekf_vs_baseline.py`. Written to be paper-agnostic (no EKF-specific assumptions) in case LARS result tables adopt it later, but as of the 2026-08-25 `scripts/lafusion/` move, no LARS script actually imports it — verify with a fresh `grep` before assuming otherwise.
-- `scripts/sweep_load.py` — LARS load-regime robustness sweep (six inter-arrival rates, 500 episodes/point).
+- `scripts/2.rl_evaluation/sweep_load.py` — LARS load-regime robustness sweep (six inter-arrival rates, 500 episodes/point).
 - `scripts/lafusion/2.evaluation/eval_ekf_continuous_error.py` reports both **ATE** (absolute per-sample error, no rigid alignment needed since estimate/odometry/ground-truth already share the world frame via the fixed camera) and **RPE** (Sturm et al. 2012 convention — error of the position delta between consecutive readings, isolates local step-to-step drift from ATE's accumulated error). This is the project's adopted metric convention for any future trajectory-error script — follow it rather than reporting only a bare mean/RMSE.
 
 ### Repository layout after the 2026-08-24 cleanup
@@ -64,9 +69,17 @@ The LAFusion-only scripts live in `scripts/lafusion/`, organized by pipeline sta
 
 `render_terminal_screenshot.py` is shared with LARS (its `--preset validation` renders the LARS validation output) but was moved into `scripts/lafusion/3.figures/` anyway at the user's request on 2026-08-25 — its invocation path is `scripts/lafusion/3.figures/render_terminal_screenshot.py`, not `scripts/render_terminal_screenshot.py`. Folder names with a numeric prefix (`0.setup`, `1.validation`, ...) aren't valid Python package names, but that's fine — nothing imports these as packages; each script is invoked directly (`python3 scripts/lafusion/1.validation/validate_ekf_synthetic.py`) and cross-stage imports go through explicit `sys.path.insert`, not `from scripts.lafusion.evaluation import ...`.
 
+The LARS-only scripts (rest of `scripts/`, outside `scripts/lafusion/`) are organized by track rather than a single linear pipeline, because LARS genuinely has four parallel tracks instead of one sequential flow — numbering all of them would imply an execution order that doesn't exist:
+- `scripts/1.rl_training/train_ppo.py` → `scripts/2.rl_evaluation/` (`eval_policy.py`, `sweep_load.py`, `aggregate_multiseed.py`, `analyze_ppo_behavior.py`) → `scripts/3.figures/` (`animate_allocation.py`, `plot_benchmark.py`, `plot_detection_error.py`, `plot_learning_curve.py`, `gen_mdp_diagram.py`, `gen_slides_gif.py`) — these three *are* numbered, because train→evaluate→plot is a real sequence.
+- `scripts/yolo_dataset/` (`collect_teleport.py`, `split_dataset.py`, `visualize_dataset.py`, `visualize_bboxes.py`, `verify_bboxes_gui.py`, `train_yolo.sh`) — the original YOLO-dataset-era pipeline (see Architecture above), largely frozen. Unnumbered: it doesn't feed into the RL track's stages.
+- `scripts/calibration_debug/` (`debug_camera_validation.py`, `debug_projection.py`, `test_frame_reference_modes.py`, `test_odom_offset.py`, `validate_camera.sh`, `analyze_odom.py`, `benchmark_detector.py`, `cmd_vel_random.py`, `random_nav_goals.py`) — ad-hoc tools invoked on demand, not in any fixed sequence. Unnumbered for the same reason.
+- `scripts/prepare_validation.sh` and `scripts/run_digital_twin_demo.sh` stay directly under `scripts/` — they orchestrate the whole pipeline (multiple tracks), not a single stage within one.
+
+Same `_REPO` convention as `scripts/lafusion/`: two `os.path.dirname(...)` calls for `scripts/*.sh` at the top level, three for anything inside one of the subfolders above.
+
 ### Reproducibility package
 
-`bags/reproducibility_package/` pins a specific git SHA, hyperparameters (`params.yaml`), camera calibration, and world/URDF files needed to rerun the LAFusion results independently. `docs/lafusion/` mirrors (copies, not symlinks) the live scripts/code/figures for paper packaging — its own README says explicitly to edit the originals in `scripts/`/`src/`, not the copies, and to resync manually after changes.
+`bags/reproducibility_package/` pins a specific git SHA, hyperparameters (`params.yaml`), camera calibration, and world/URDF files needed to rerun the LAFusion results independently. `docs/lafusion/` mirrors (copies, not symlinks) the live scripts/code/figures for paper packaging — its own README says explicitly to edit the originals in `scripts/`/`src/`, not the copies. As of 2026-08-25, resync is automated: run `python3 scripts/lafusion/build_package.py` after editing any of `association.py`/`ekf_core.py`/`ekf_fusion_node.py`/`projection.py`/`yolo_detector.py`, any `scripts/lafusion/*/` script, or `bags/reproducibility_package/README.md` — it diffs source against the copy and only touches files that actually changed. Manual `cp` is no longer the expected workflow; the earlier manual-resync process was a repeated source of drift (forgotten "for later in the session") that this script replaces.
 
 ## Papers and skills
 

@@ -12,6 +12,14 @@ consulta e submissão.
 > com os imports relativos corretos para rodar) continuam em `scripts/`,
 > `src/cerise_nav/cerise_nav/`, e `bags/` na raiz do repositório. Para
 > executar qualquer script, use os originais, não as cópias desta pasta.
+>
+> **A partir de 2026-08-25, a cópia é gerada automaticamente** por
+> `scripts/lafusion/build_package.py` (não copie manualmente com `cp`).
+> Rode `python3 scripts/lafusion/build_package.py` sempre que editar
+> `association.py`, `ekf_core.py`, `ekf_fusion_node.py`, `projection.py`,
+> `yolo_detector.py`, qualquer script em `scripts/lafusion/*/`, ou
+> `bags/reproducibility_package/README.md` — o script detecta o que mudou
+> e sincroniza só isso.
 
 ## Estrutura
 
