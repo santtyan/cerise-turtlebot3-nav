@@ -53,7 +53,7 @@ python3 scripts/lafusion/2.evaluation/eval_ekf_continuous_error.py    # idem, m�
 
 ```bash
 ./launch/launch_2robots_with_camera.sh
-python3 scripts/random_nav_goals.py
+python3 scripts/calibration_debug/random_nav_goals.py
 ros2 run cerise_nav dataset_collector
 ```
 
@@ -110,7 +110,7 @@ source install/setup.bash
 
 # Terminal 2 — Goals aleatórios (robôs navegam autonomamente)
 source /opt/ros/humble/setup.bash
-python3 scripts/random_nav_goals.py
+python3 scripts/calibration_debug/random_nav_goals.py
 
 # Terminal 3 — Coletar dataset (~10 min)
 source /opt/ros/humble/setup.bash
@@ -137,7 +137,7 @@ Gera 60 frames sintéticos com trajetórias circulares, valida projeção (simpl
 
 ```bash
 # Separa dataset/raw/ em dataset/images/{train,val} + dataset/labels/{train,val}
-python scripts/split_dataset.py --ratio 0.8
+python scripts/yolo_dataset/split_dataset.py --ratio 0.8
 
 # Treina YOLOv8
 yolo detect train data=config/dataset.yaml model=yolov8n.pt epochs=100 imgsz=640
@@ -268,7 +268,7 @@ ros2 run robot_state_publisher robot_state_publisher \
 
 ### Goals aleatórios Nav2
 
-`scripts/random_nav_goals.py` envia goals via `NavigateToPose` action para ambos os robôs em loop. Waypoints definidos dentro do labirinto `turtlebot3_world`.
+`scripts/calibration_debug/random_nav_goals.py` envia goals via `NavigateToPose` action para ambos os robôs em loop. Waypoints definidos dentro do labirinto `turtlebot3_world`.
 
 ### Projeção world→pixel: mapeamento de eixos com pitch=π/2
 

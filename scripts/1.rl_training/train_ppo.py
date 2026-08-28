@@ -2,8 +2,8 @@
 """Treina um agente PPO no AllocationEnv (env leve, sem Gazebo).
 
 Para a ablação YOLO vs odometria, use --obs-source:
-    python3 scripts/train_ppo.py --obs-source yolo
-    python3 scripts/train_ppo.py --obs-source odom
+    python3 scripts/1.rl_training/train_ppo.py --obs-source yolo
+    python3 scripts/1.rl_training/train_ppo.py --obs-source odom
 
 Salva o modelo em models/ppo_allocator_<obs_source>.zip e loga curvas no
 TensorBoard (runs/). A calibração do tempo de navegação vem de ~/cerise_log.csv
@@ -15,7 +15,7 @@ import os
 import sys
 
 # Permite importar cerise_nav.rl sem instalar o pacote (rodar do repo).
-_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(_REPO, 'src', 'cerise_nav'))
 
 from stable_baselines3 import PPO                                       # noqa: E402

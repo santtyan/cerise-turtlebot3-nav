@@ -33,4 +33,4 @@ wait 2>/dev/null
 echo "Log salvo em: $ERROR_LOG"
 echo ""
 echo "Gerando gráfico..."
-python3 "$WS/scripts/plot_detection_error.py" "$ERROR_LOG"
+python3 "$WS/scripts/3.figures/plot_detection_error.py" "$ERROR_LOG"

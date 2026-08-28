@@ -20,7 +20,7 @@ from nav_msgs.msg import Odometry
 from cv_bridge import CvBridge
 
 import sys
-_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(_REPO, 'src', 'cerise_nav'))
 from cerise_nav.projection import world_to_pixel_with_camera, robot_bbox_normalized
 

@@ -5,13 +5,13 @@ Avalia cada checkpoint no env leve (200 episódios) e plota ep_rew_mean
 para PPO(yolo), PPO(odom) e a linha do nearest_free como referência.
 
 Uso:
-    python3 scripts/plot_learning_curve.py
+    python3 scripts/3.figures/plot_learning_curve.py
 """
 import os
 import sys
 import numpy as np
 
-_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(_REPO, 'src', 'cerise_nav'))
 
 from stable_baselines3 import PPO

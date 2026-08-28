@@ -13,7 +13,7 @@ Saída:
   dataset/labels/val/NNN.txt
 
 Uso:
-  python scripts/split_dataset.py [--ratio 0.8] [--seed 42]
+  python scripts/yolo_dataset/split_dataset.py [--ratio 0.8] [--seed 42]
 """
 
 import argparse

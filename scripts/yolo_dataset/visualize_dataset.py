@@ -4,12 +4,12 @@ Visualiza frames do dataset com bboxes YOLO desenhados.
 Útil para validar que o bbox está alinhado sobre o robô durante movimento.
 
 Uso:
-    python3 scripts/visualize_dataset.py [frame_id]
+    python3 scripts/yolo_dataset/visualize_dataset.py [frame_id]
 
 Exemplos:
-    python3 scripts/visualize_dataset.py 0         # Primeiro frame
-    python3 scripts/visualize_dataset.py 500       # Frame 500
-    python3 scripts/visualize_dataset.py random    # Frame aleatório
+    python3 scripts/yolo_dataset/visualize_dataset.py 0         # Primeiro frame
+    python3 scripts/yolo_dataset/visualize_dataset.py 500       # Frame 500
+    python3 scripts/yolo_dataset/visualize_dataset.py random    # Frame aleatório
 """
 
 import sys

@@ -5,12 +5,12 @@ PPO(YOLO) vs nearest_free lado a lado — mesmo episódio, seed fixo.
 Visual limpo: fundo branco, robôs grandes, setas espessas, sem ruído.
 
 Uso:
-    python3 scripts/gen_slides_gif.py
+    python3 scripts/3.figures/gen_slides_gif.py
 """
 import os, sys
 import numpy as np
 
-_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(_REPO, 'src', 'cerise_nav'))
 
 import matplotlib

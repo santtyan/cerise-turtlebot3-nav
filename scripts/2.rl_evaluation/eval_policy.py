@@ -13,8 +13,8 @@ viagem; sob alta carga elas divergem e é onde o RL pode superar o guloso.
   - taxa de ação inválida
 
 Uso:
-    python3 scripts/eval_policy.py --model models/ppo_allocator_yolo.zip --plot
-    python3 scripts/eval_policy.py --ablation --plot
+    python3 scripts/2.rl_evaluation/eval_policy.py --model models/ppo_allocator_yolo.zip --plot
+    python3 scripts/2.rl_evaluation/eval_policy.py --ablation --plot
 """
 
 import argparse
@@ -23,7 +23,7 @@ import sys
 
 import numpy as np
 
-_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(_REPO, 'src', 'cerise_nav'))
 
 from cerise_nav.rl.allocation_env import AllocationEnv, WAYPOINT_SETS  # noqa: E402

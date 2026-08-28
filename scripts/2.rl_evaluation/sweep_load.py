@@ -6,8 +6,8 @@ políticas e calcula o gap% vs oráculo. O crossover aparece como o ponto onde
 PPO(yolo) < nearest_free no eixo de response_time.
 
 Uso:
-    python3 scripts/sweep_load.py --plot
-    python3 scripts/sweep_load.py --episodes 200 --quick   # rápido (~2 min)
+    python3 scripts/2.rl_evaluation/sweep_load.py --plot
+    python3 scripts/2.rl_evaluation/sweep_load.py --episodes 200 --quick   # rápido (~2 min)
 """
 
 import argparse
@@ -16,7 +16,7 @@ import sys
 
 import numpy as np
 
-_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(_REPO, 'src', 'cerise_nav'))
 
 from cerise_nav.rl.allocation_env import AllocationEnv, WAYPOINT_SETS  # noqa: E402

@@ -2,7 +2,7 @@
 Benchmark do yolo_detector: teleporta robôs para 8 poses e mede erro de detecção.
 Gera tabela CSV e imprime resultado no terminal.
 
-Uso: python3 scripts/benchmark_detector.py
+Uso: python3 scripts/calibration_debug/benchmark_detector.py
 (Gazebo + yolo_detector devem estar rodando)
 """
 
@@ -99,7 +99,7 @@ def main():
               f'Detecções: {len(errors)}/{len(TEST_POSES)}')
 
     # Salva CSV
-    out = os.path.join(os.path.dirname(__file__), '..', 'docs', 'benchmark_results.csv')
+    out = os.path.join(os.path.dirname(__file__), '..', '..', 'docs', 'benchmark_results.csv')
     out = os.path.realpath(out)
     with open(out, 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=['pose', 'r1x', 'r1y', 'r2x', 'r2y', 'error_m'])

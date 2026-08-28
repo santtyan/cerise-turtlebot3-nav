@@ -10,9 +10,9 @@ Gera frames PNG (ou GIF animado) mostrando:
 Útil para debug visual (por que PPO ≠ nearest_free) e como figura pro paper.
 
 Uso:
-    python3 scripts/animate_allocation.py --policy nearest_free --gif
-    python3 scripts/animate_allocation.py --policy ppo --model models/ppo_allocator_yolo.zip
-    python3 scripts/animate_allocation.py --compare  # lado a lado nearest_free vs PPO
+    python3 scripts/3.figures/animate_allocation.py --policy nearest_free --gif
+    python3 scripts/3.figures/animate_allocation.py --policy ppo --model models/ppo_allocator_yolo.zip
+    python3 scripts/3.figures/animate_allocation.py --compare  # lado a lado nearest_free vs PPO
 """
 
 import argparse
@@ -21,7 +21,7 @@ import sys
 
 import numpy as np
 
-_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(_REPO, 'src', 'cerise_nav'))
 
 from cerise_nav.rl.allocation_env import AllocationEnv, WAYPOINT_SETS  # noqa: E402

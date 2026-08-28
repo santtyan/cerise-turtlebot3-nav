@@ -2,12 +2,12 @@
 """Agrega resultados de múltiplos seeds do PPO e reporta média±std.
 
 Uso:
-    python3 scripts/aggregate_multiseed.py --seeds 42 123 7 --inter-arrival 12
+    python3 scripts/2.rl_evaluation/aggregate_multiseed.py --seeds 42 123 7 --inter-arrival 12
 """
 import argparse, os, sys
 import numpy as np
 
-_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(_REPO, 'src', 'cerise_nav'))
 
 from cerise_nav.rl.allocation_env import AllocationEnv

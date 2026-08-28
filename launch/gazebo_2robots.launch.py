@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Launch leve: Gazebo + 2 TurtleBot3 + dataset_collector.
-Movimento dos robôs é feito via `scripts/cmd_vel_random.py` (sem Nav2).
+Movimento dos robôs é feito via `scripts/calibration_debug/cmd_vel_random.py` (sem Nav2).
 """
 from pathlib import Path
 from launch import LaunchDescription
