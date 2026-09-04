@@ -15,6 +15,15 @@
 \setlength{\textfloatsep}{10pt plus 2pt minus 4pt}
 \setlength{\intextsep}{6pt plus 2pt minus 2pt}
 
+% \paragraph spacing: llncs.cls default leaves noticeable vertical gap
+% before each run-in heading; tightened here to match the compact
+% figure/table spacing above (this is the standard \paragraph command,
+% not a manual bold label, so its vertical rhythm is a length to tune,
+% not a structural choice to second-guess).
+\makeatletter
+\renewcommand{\paragraph}[1]{\vspace{4pt}\noindent{\em #1}\enspace}
+\makeatother
+
 \begin{document}
 
 \title{Extended Kalman Filter Fusion of Visual Detection and Odometry Under Sparse Observation: A Multi-Robot Digital Twin Case Study}
@@ -152,9 +161,10 @@ discard prior visual corrections. The observation model maps state to
 the 2D position reported by a YOLO detector on a fixed overhead camera
 (Section~\ref{sec:experimental-setup}).
 
-\textbf{Prediction and covariance capping.} Process noise is
+\paragraph{Prediction and covariance capping.}
+Process noise is
 $Q=\mathrm{diag}(0.5,0.5,0.25)$, scaled by $\Delta t/0.1$ for the real
-odometry rate ($\approx$29\,Hz vs.\ the 0.1s assumed during synthetic
+odometry rate ($\approx$29\,Hz vs.\ the 0.1\,s assumed during synthetic
 calibration); calibrated empirically (a sweep from $10^{-6}$ to $1.0$
 showed monotonically increasing gain up to saturation at $Q\ge0.5$). A
 hard ceiling $\mathrm{clip}(P,-\infty,0.05)$ (element-wise) is applied
@@ -175,7 +185,7 @@ mechanistic motivation rather than a formal guarantee for our
 nonlinear filter. The ceiling trades strict optimality for bounded,
 predictable behavior under sparse observation.
 
-\textbf{Data association and correction.}
+\paragraph{Data association and correction.}
 \label{sec:association}
 Each detection is assigned via Mahalanobis-gated nearest-neighbor:
 $d^2=e^\top P_{xy}^{-1}e$ per (robot, detection) pair, accepted only if
@@ -189,10 +199,11 @@ linearly from YOLO detection confidence $c\in[0,1]$,
 $\sigma=R_{\min}+(1-c)(R_{\max}-R_{\min})$, $R_{\min}=0.02$,
 $R_{\max}=0.20$\,m.
 
-\textbf{Camera calibration.} Intrinsics come from
+\paragraph{Camera calibration.}
+Intrinsics come from
 \texttt{cv2.calibrateCamera} (Zhang's method). A
 first attempt with all four intrinsics free reached low reprojection
-error (0.162px) but an ill-conditioned focal length ($f_x$ 33\% above
+error (0.162\,px) but an ill-conditioned focal length ($f_x$ 33\% above
 the FOV-derived theoretical value): the degenerate case Zhang's method
 suffers when the checkerboard plane stays fronto-parallel to the
 sensor across all poses, unavoidable with our fixed downward-looking
@@ -200,10 +211,11 @@ camera. We corrected this by fixing $f_x,f_y,c_x,c_y$ at their
 geometric nominal values and calibrating only lens distortion, the
 standard remedy when nominal intrinsics are already known; the
 corrected calibration reproduces the FOV-derived heuristic already
-used in production to within 0.001m, confirming both are geometrically
+used in production to within 0.001\,m, confirming both are geometrically
 equivalent.
 
-\textbf{Validation.} Following the standard consistency tests for
+\paragraph{Validation.}
+Following the standard consistency tests for
 Kalman filters, we first check NEES and
 NIS in simulation before trusting the filter on real data: 30 Monte
 Carlo seeds (2000 steps each) give NEES$=2.955$ (expected $3.0$) and
@@ -214,7 +226,7 @@ real odometry and YOLO detections recorded from the live digital twin,
 where observation coverage is sparse and irregular by construction,
 not by design choice.
 
-\textbf{Experimental setup.}
+\paragraph{Experimental setup.}
 \label{sec:experimental-setup}
 We evaluate our EKF in a ROS2/Gazebo digital twin: three TurtleBot3
 Waffle units alongside a static overhead camera at $(0,0,3)$\,m,
@@ -268,7 +280,7 @@ measured at every odometry reading regardless of correction. These two
 metrics disagree in sign, and both are necessary to honestly
 characterize the filter's behavior under sparse observation.
 
-\textbf{Correction-instant error.}
+\paragraph{Correction-instant error.}
 The synthetic NEES/NIS validation (Section~\ref{sec:methodology})
 confirms the filter is well-calibrated before any real-data evaluation
 (Fig.~\ref{fig:nees-nis}, NEES$\to 3.0$, NIS$\to 2.0$).
@@ -328,7 +340,7 @@ Fig.~\ref{fig:trajectory} shows this qualitatively: raw odometry
 visibly drifts from the straight ground-truth path, while the EKF
 estimate tracks it more closely.
 
-\textbf{Continuous error: the central finding.}
+\paragraph{Continuous error: the central finding.}
 When error is instead measured at \emph{every} odometry reading, the
 result reverses. Table~\ref{tab:continuous-error} reports
 continuous-time error under aggressive drift, using the same
@@ -419,7 +431,7 @@ the uncorrected interval: the filter remains overconfident in its
 odometry-only prediction relative to how uncertain that prediction
 actually is.
 
-\textbf{Discussion.}
+\paragraph{Discussion.}
 \label{sec:discussion}
 The natural reading of Table~\ref{tab:continuous-error} is
 unflattering: our EKF, evaluated continuously, loses to the odometry
@@ -475,7 +487,7 @@ justification, for choosing the clip.
 
 \section{Future Work and Conclusion}
 
-\textbf{Future work.}
+\paragraph{Future work.}
 \label{sec:future-work}
 Concrete directions include: (a) \textbf{adaptive process noise}:
 scale $Q$ by time since the last correction instead of a fixed
@@ -489,7 +501,7 @@ relative localization}: a camera-free filtering channel on the same
 platform could provide a second correction channel during
 visual-coverage gaps.
 
-\textbf{Conclusion.}
+\paragraph{Conclusion.}
 We replaced a discrete visual/odometry fallback with a two-stage
 validated Extended Kalman Filter, evaluated on real recorded data from
 three TurtleBot3 robots. The filter delivers a genuine gain at

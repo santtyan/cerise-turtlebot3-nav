@@ -17,6 +17,16 @@
 \setlength{\textfloatsep}{10pt plus 2pt minus 4pt}
 \setlength{\intextsep}{6pt plus 2pt minus 2pt}
 
+% Espaçamento de \paragraph: o padrão do llncs.cls deixa uma folga
+% vertical perceptível antes de cada título run-in; comprimido aqui
+% para bater com o espaçamento compacto de figura/tabela acima (é o
+% comando \paragraph padrão, não um rótulo em negrito manual, então
+% seu ritmo vertical é um comprimento a ajustar, não uma escolha
+% estrutural a questionar).
+\makeatletter
+\renewcommand{\paragraph}[1]{\vspace{4pt}\noindent{\em #1}\enspace}
+\makeatother
+
 \begin{document}
 
 \title{Fusão por Filtro de Kalman Estendido de Detecção Visual e Odometria sob Observação Esparsa: um Estudo de Caso em Gêmeo Digital Multi-Robô}
@@ -160,7 +170,8 @@ anteriores. O modelo de observação mapeia o estado para a posição 2D
 reportada por um detector YOLO em uma câmera fixa suspensa
 (Seção~\ref{sec:experimental-setup}).
 
-\textbf{Predição e teto de covariância.} O ruído de processo é
+\paragraph{Predição e teto de covariância.}
+O ruído de processo é
 $Q=\mathrm{diag}(0,5;\,0,5;\,0,25)$, escalado por $\Delta t/0,1$ para a
 taxa real de odometria ($\approx$29\,Hz vs.\ os 0,1s assumidos na
 calibração sintética); calibrado empiricamente (uma varredura de
@@ -185,7 +196,7 @@ conexão como motivação mecanicista, não como garantia formal para
 nosso filtro não linear. O teto troca otimalidade estrita por
 comportamento limitado e previsível sob observação esparsa.
 
-\textbf{Associação de dados e correção.}
+\paragraph{Associação de dados e correção.}
 \label{sec:association}
 Cada detecção é atribuída via vizinho mais próximo com gating de
 Mahalanobis: $d^2=e^\top P_{xy}^{-1}e$ por par (robô, detecção),
@@ -199,10 +210,11 @@ derivado linearmente da confiança de detecção do YOLO $c\in[0,1]$,
 $\sigma=R_{\min}+(1-c)(R_{\max}-R_{\min})$, $R_{\min}=0,02$,
 $R_{\max}=0,20$\,m.
 
-\textbf{Calibração de câmera.} Os intrínsecos vêm de
+\paragraph{Calibração de câmera.}
+Os intrínsecos vêm de
 \texttt{cv2.calibrateCamera} (método de Zhang). Uma
 primeira tentativa com os quatro intrínsecos livres alcançou baixo
-erro de reprojeção (0,162px), mas uma distância focal mal-condicionada
+erro de reprojeção (0,162\,px), mas uma distância focal mal-condicionada
 ($f_x$ 33\% acima do valor teórico derivado do FOV): o caso degenerado
 que o método de Zhang sofre quando o plano do tabuleiro permanece
 fronto-paralelo ao sensor em todas as poses, inevitável com nossa
@@ -210,10 +222,11 @@ câmera fixa voltada para baixo. Corrigimos isso fixando
 $f_x,f_y,c_x,c_y$ em seus valores nominais geométricos e calibrando
 apenas a distorção da lente, o remédio padrão quando os intrínsecos
 nominais já são conhecidos; a calibração corrigida reproduz a projeção
-heurística já usada em produção com erro de até 0,001m, confirmando
+heurística já usada em produção com erro de até 0,001\,m, confirmando
 que ambas são geometricamente equivalentes.
 
-\textbf{Validação.} Seguindo os testes de consistência padrão para
+\paragraph{Validação.}
+Seguindo os testes de consistência padrão para
 filtros de Kalman, checamos primeiro NEES e NIS em simulação antes de confiar no filtro em dados reais: 30
 sementes de Monte Carlo (2000 passos cada) fornecem NEES$=2,955$
 (esperado $3,0$) e NIS$=1,982$ (esperado $2,0$), dentro de 1,5\%/0,9\%
@@ -224,7 +237,7 @@ detecções YOLO reais gravadas do gêmeo digital ao vivo, onde a
 cobertura de observação é esparsa e irregular por construção, não por
 escolha de projeto.
 
-\textbf{Configuração experimental.}
+\paragraph{Configuração experimental.}
 \label{sec:experimental-setup}
 Avaliamos nosso EKF em um gêmeo digital ROS2/Gazebo: três unidades
 TurtleBot3 Waffle junto a uma câmera fixa suspensa em $(0,0,3)$\,m,
@@ -280,7 +293,7 @@ independentemente de correção. Essas duas métricas discordam em
 sinal, e ambas são necessárias para caracterizar honestamente o
 comportamento do filtro sob observação esparsa.
 
-\textbf{Erro no instante de correção.}
+\paragraph{Erro no instante de correção.}
 A validação NEES/NIS sintética (Seção~\ref{sec:methodology}) confirma
 que o filtro está bem calibrado antes de qualquer avaliação com dados
 reais (Fig.~\ref{fig:nees-nis}, NEES$\to 3,0$, NIS$\to 2,0$).
@@ -342,7 +355,7 @@ A Fig.~\ref{fig:trajectory} mostra isso qualitativamente: a odometria
 bruta visivelmente se afasta do caminho reto de ground truth, enquanto
 a estimativa do EKF o acompanha mais de perto.
 
-\textbf{Erro contínuo: o achado central.}
+\paragraph{Erro contínuo: o achado central.}
 Quando o erro é medido a \emph{cada} leitura de odometria, o resultado
 se inverte. A Tabela~\ref{tab:continuous-error} reporta o erro em
 tempo contínuo sob deriva agressiva, usando as mesmas gravações.
@@ -434,7 +447,7 @@ correção: o filtro permanece superconfiante em sua predição baseada
 apenas em odometria, em relação a quão incerta essa predição realmente
 é.
 
-\textbf{Discussão.}
+\paragraph{Discussão.}
 \label{sec:discussion}
 A leitura natural da Tabela~\ref{tab:continuous-error} é desfavorável:
 nosso EKF, avaliado continuamente, perde para a odometria que deveria
@@ -494,7 +507,7 @@ justificativa teórica, para a escolha do clip.
 
 \section{Trabalhos Futuros e Conclusão}
 
-\textbf{Trabalhos futuros.}
+\paragraph{Trabalhos futuros.}
 \label{sec:future-work}
 Direções concretas incluem: (a) \textbf{ruído de processo adaptativo}:
 escalar $Q$ pelo tempo desde a última correção em vez de um teto fixo,
@@ -508,7 +521,7 @@ de projeção para $R$; (d) \textbf{localização relativa distribuída}:
 um canal de filtragem sem câmera na mesma plataforma poderia fornecer
 um segundo canal de correção durante lacunas de cobertura visual.
 
-\textbf{Conclusão.}
+\paragraph{Conclusão.}
 Substituímos um fallback discreto visual/odometria por um Filtro de
 Kalman Estendido validado em duas etapas, avaliado em dados reais
 gravados de três robôs TurtleBot3. O filtro entrega um ganho genuíno
