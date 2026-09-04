@@ -128,34 +128,25 @@ observa que esse limiar crítico depende da métrica de resumo de
 covariância usada; reportamos $\mathrm{trace}(P)$ como uma escolha de
 escopo, não uma alegação de independência de métrica.
 
-Khosravi et al.~\cite{khosravi2026cooperative} reportam localização
-cooperativa descentralizada para dois robôs (correções mútuas via
-LiDAR), com redução de RMSE de $34\%$/$56\%$, comparável em ordem de
-grandeza ao nosso $+23,7\%$. Ahmed e
-Fr\'emont~\cite{ahmed2026maritime} fundem um detector YOLOv8-RGBDis
-customizado com um EKF por alvo para uma equipe multi-robô marítima
-($\mathrm{mAP@0.5}=0,995$, numericamente próximo do nosso). Nenhum dos
-dois reporta um regime de erro contínuo em que a fusão perde para a
-linha de base sem fusão: o achado diferenciador deste trabalho.
-Dobrynin e Garcia~\cite{dobrynin2025turtlebot} compartilham nossa
-plataforma exata (três TurtleBot3, ROS2), mas resolvem localização
-relativa sem câmera, portanto não encontram cobertura visual esparsa
-(revisitado como trabalho complementar na
-Seção~\ref{sec:future-work}). Nossa contribuição é o relato conjunto
-do ganho no instante de correção e da degradação do erro contínuo,
-fundamentado em \cite{sinopoli2004intermittent,censi2009geometric}
-para explicar por que esse trade-off é esperado, e não um bug de
-implementação. Também não avaliamos contra um benchmark multi-robô
-público como UTIAS MRCLAM~\cite{leung2011utias} ou
-S3E~\cite{feng2022s3e}: ambos assumem uma carga sensorial transportada
-por cada robô, enquanto nossa configuração observa os robôs a partir
-de uma única câmera externa e estática, mais próxima de um sensor
-fixo de ambiente inteligente do que de SLAM cooperativo. Até onde
-sabemos, nenhum conjunto de dados público combina esses três
-elementos, o que motiva o conjunto de dados gravado e disponibilizado
-com este trabalho (Seção~\ref{sec:experimental-setup}). Esta cobertura
-reflete busca direcionada, não uma revisão sistemática da literatura
-com protocolo registrado; uma revisão formal continua em aberto.
+Arquiteturas de fusão que reportam um único número de ganho no
+instante de correção são comuns na literatura de localização
+multi-robô, mas nenhuma de que temos conhecimento também reporta um
+regime de erro contínuo em que a fusão perde para a linha de base sem
+fusão: o achado diferenciador deste trabalho. Nossa contribuição é o
+relato conjunto do ganho no instante de correção e da degradação do
+erro contínuo, fundamentado em
+\cite{sinopoli2004intermittent,censi2009geometric} para explicar por
+que esse trade-off é esperado, e não um bug de implementação. Também
+não avaliamos contra um benchmark multi-robô público, já que esses
+tipicamente assumem uma carga sensorial transportada por cada robô,
+enquanto nossa configuração observa os robôs a partir de uma única
+câmera externa e estática, mais próxima de um sensor fixo de ambiente
+inteligente do que de SLAM cooperativo. Até onde sabemos, nenhum
+conjunto de dados público combina esses elementos, o que motiva o
+conjunto de dados gravado e disponibilizado com este trabalho
+(Seção~\ref{sec:experimental-setup}). Esta cobertura reflete busca
+direcionada, não uma revisão sistemática da literatura com protocolo
+registrado; uma revisão formal continua em aberto.
 
 \section{Método}
 \label{sec:methodology}
@@ -209,7 +200,7 @@ $\sigma=R_{\min}+(1-c)(R_{\max}-R_{\min})$, $R_{\min}=0,02$,
 $R_{\max}=0,20$\,m.
 
 \textbf{Calibração de câmera.} Os intrínsecos vêm de
-\texttt{cv2.calibrateCamera} (Zhang~\cite{zhang2000calibration}). Uma
+\texttt{cv2.calibrateCamera} (método de Zhang). Uma
 primeira tentativa com os quatro intrínsecos livres alcançou baixo
 erro de reprojeção (0,162px), mas uma distância focal mal-condicionada
 ($f_x$ 33\% acima do valor teórico derivado do FOV): o caso degenerado
@@ -223,8 +214,7 @@ heurística já usada em produção com erro de até 0,001m, confirmando
 que ambas são geometricamente equivalentes.
 
 \textbf{Validação.} Seguindo os testes de consistência padrão para
-filtros de Kalman~\cite{barshalom2001estimation}, checamos primeiro
-NEES e NIS em simulação antes de confiar no filtro em dados reais: 30
+filtros de Kalman, checamos primeiro NEES e NIS em simulação antes de confiar no filtro em dados reais: 30
 sementes de Monte Carlo (2000 passos cada) fornecem NEES$=2,955$
 (esperado $3,0$) e NIS$=1,982$ (esperado $2,0$), dentro de 1,5\%/0,9\%
 de erro relativo, bem calibrado apesar de os limites formais de
@@ -511,14 +501,12 @@ escalar $Q$ pelo tempo desde a última correção em vez de um teto fixo,
 mais principiado mas, como nosso teste do fator de esquecimento
 mostra, não uma melhora garantida sem ajuste adicional; (b)
 \textbf{LiDAR como terceira fonte de fusão}: cada robô já publica
-leituras 2D não utilizadas; correções mútuas via LiDAR (no espírito de
-Khosravi et al.~\cite{khosravi2026cooperative}) poderiam mirar
-diretamente o regime de cobertura zero; (c) \textbf{incerteza de
-projeção formal}: propagar o Jacobiano completo de projeção para $R$;
-(d) \textbf{localização relativa distribuída}: a filtragem distribuída
-sem câmera de Dobrynin e Garcia~\cite{dobrynin2025turtlebot} na mesma
-plataforma poderia fornecer um segundo canal de correção durante
-lacunas de cobertura visual.
+leituras 2D não utilizadas; correções mútuas via LiDAR entre robôs
+poderiam mirar diretamente o regime de cobertura zero; (c)
+\textbf{incerteza de projeção formal}: propagar o Jacobiano completo
+de projeção para $R$; (d) \textbf{localização relativa distribuída}:
+um canal de filtragem sem câmera na mesma plataforma poderia fornecer
+um segundo canal de correção durante lacunas de cobertura visual.
 
 \textbf{Conclusão.}
 Substituímos um fallback discreto visual/odometria por um Filtro de
@@ -536,14 +524,9 @@ esparsa precisa ser medida e reportada explicitamente, e a própria
 taxa de observação, não a escolha do filtro, é a restrição vinculante
 que trabalhos futuros devem mirar.
 
-\begin{thebibliography}{15}
+\begin{thebibliography}{8}
 \setlength{\itemsep}{0pt}
 \setlength{\parskip}{2pt}
-
-\bibitem{barshalom2001estimation}
-Bar-Shalom, Y., Li, X.-R., Kirubarajan, T.: Estimation with
-Applications to Tracking and Navigation: Theory, Algorithms and
-Software. Wiley, New York (2001)
 
 \bibitem{kluge2010stochastic}
 Kluge, S., Reif, K., Brokate, M.: Stochastic stability of the extended
@@ -575,40 +558,10 @@ Transactions on Automatic Control \textbf{49}(9), 1453--1464 (2004)
 Censi, A.: Geometric remarks on Kalman filtering with intermittent
 observations. arXiv:0906.1637 (2009)
 
-\bibitem{zhang2000calibration}
-Zhang, Z.: A flexible new technique for camera calibration. IEEE
-Transactions on Pattern Analysis and Machine Intelligence \textbf{22}(11),
-1330--1334 (2000)
-
 \bibitem{altendorfer2016association}
 Altendorfer, R., Wirkert, S.J.: Why the association log-likelihood
 distance should be used for measurement-to-track association. In: 2016
 IEEE Intelligent Vehicles Symposium (IV). pp. 258--265 (2016)
-
-\bibitem{khosravi2026cooperative}
-Khosravi, N., Khosravi, N., Bozorg, M., Bahraini, M.S.: Decentralized
-Cooperative Localization for Multi-Robot Systems with Asynchronous Sensor
-Fusion. arXiv:2603.12075 (2026)
-
-\bibitem{ahmed2026maritime}
-Ahmed, M.F., Fr\'emont, V.: Decentralized Multi-Robot Obstacle Detection
-and Tracking in a Maritime Scenario. arXiv:2602.12012 (2026)
-
-\bibitem{dobrynin2025turtlebot}
-Dobrynin, D., Garcia, I.T.: A TurtleBot3 Hardware Testbed for Distributed
-Kalman Filter Localization. Senior Project, California Polytechnic State
-University, San Luis Obispo (2025)
-
-\bibitem{leung2011utias}
-Leung, K.Y.K., Halpern, Y., Barfoot, T.D., Liu, H.H.T.: The UTIAS
-multi-robot cooperative localization and mapping dataset. The
-International Journal of Robotics Research \textbf{30}(8), 969--974
-(2011)
-
-\bibitem{feng2022s3e}
-Feng, D., Qi, Y., Zhong, S., Chen, Z., Chen, Q., Chen, H., Wu, J., Ma,
-J.: S3E: A multi-robot multimodal dataset for collaborative SLAM.
-arXiv:2210.13723 (2022)
 
 \bibitem{sturm2012tum}
 Sturm, J., Engelhard, N., Endres, F., Burgard, W., Cremers, D.: A
