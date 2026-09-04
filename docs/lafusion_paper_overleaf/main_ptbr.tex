@@ -161,7 +161,7 @@ reportada por um detector YOLO em uma câmera fixa suspensa
 (Seção~\ref{sec:experimental-setup}).
 
 \textbf{Predição e teto de covariância.} O ruído de processo é
-$Q=\mathrm{diag}(0,5,\,0,5,\,0,25)$, escalado por $\Delta t/0,1$ para a
+$Q=\mathrm{diag}(0,5;\,0,5;\,0,25)$, escalado por $\Delta t/0,1$ para a
 taxa real de odometria ($\approx$29\,Hz vs.\ os 0,1s assumidos na
 calibração sintética); calibrado empiricamente (uma varredura de
 $10^{-6}$ a $1,0$ mostrou ganho monotonicamente crescente até a
@@ -287,7 +287,7 @@ reais (Fig.~\ref{fig:nees-nis}, NEES$\to 3,0$, NIS$\to 2,0$).
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.85\textwidth]{figures/lafusion_nees_nis.png}
+\includegraphics[width=0.95\textwidth]{figures/lafusion_nees_nis.png}
 \caption{Consistência de NEES e NIS ao longo da validação sintética de
 Monte Carlo (30 sementes, 2000 passos cada). Ambas as estatísticas
 acompanham seus valores teóricos esperados, indicando um filtro bem
@@ -331,7 +331,7 @@ Agressiva & 0,128 / 0,168 & $\mathbf{+23,7\%}$ & 0,163 / 0,195 & $\mathbf{+16,7\
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.6\textwidth]{figures/lafusion_trajectory.png}
+\includegraphics[width=0.75\textwidth]{figures/lafusion_trajectory.png}
 \caption{Trajetória estimada sob deriva agressiva, Cenário 2
 (movimento reto). O EKF (azul) acompanha a ground truth (preto) mais
 de perto que a odometria bruta com deriva (laranja, tracejado).}

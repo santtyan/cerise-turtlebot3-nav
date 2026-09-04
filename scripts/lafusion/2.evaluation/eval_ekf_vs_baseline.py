@@ -55,9 +55,9 @@ COV_CAP = 0.05  # teto de covariância (metros², rad²) — None desabilita
 # Mahalanobis aceitar detecções de outro robô durante gaps longos sem
 # correção (cenário 2, oclusão) — o mesmo modo de falha que o clip existe
 # para evitar. Ganho no drift agressivo caiu de +23,7%/+16,7% (clip) para
-# -16,5%/-104% (fading sem teto) e para -3,9% a -19,3% (fading com teto
-# 0,1-0,3). Mantido no código como opção experimental (COV_UPDATE_MODE),
-# default permanece 'clip'.
+# -18,5%/-112,5% (fading sem teto) e para -3,9% a -19,3%/-111,3% (fading
+# com teto 0,1-0,3). Mantido no código como opção experimental
+# (COV_UPDATE_MODE), default permanece 'clip'.
 COV_UPDATE_MODE = 'clip'  # 'clip' | 'fading' | 'fading_capped'
 FADE_RATE = 0.05
 FADE_MAX = 5.0
