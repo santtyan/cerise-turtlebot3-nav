@@ -267,7 +267,7 @@ confirms the filter is well-calibrated before any real-data evaluation
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.85\textwidth]{../lafusion/figures/lafusion_nees_nis.png}
+\includegraphics[width=0.85\textwidth]{figures/lafusion_nees_nis.png}
 \caption{NEES and NIS consistency over the synthetic Monte Carlo
 validation (30 seeds, 2000 steps each). Both statistics track their
 theoretical expected values, indicating a well-calibrated filter.}
@@ -309,7 +309,7 @@ Aggressive & 0.128 / 0.168 & $\mathbf{+23.7\%}$ & 0.163 / 0.195 & $\mathbf{+16.7
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.6\textwidth]{../lafusion/figures/lafusion_trajectory.png}
+\includegraphics[width=0.6\textwidth]{figures/lafusion_trajectory.png}
 \caption{Estimated trajectory under aggressive drift, Scenario 2
 (straight motion). The EKF (blue) tracks ground truth (black) more
 closely than raw drifted odometry (orange, dashed).}
@@ -378,7 +378,7 @@ corrections become sparse enough for the covariance ceiling
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.9\textwidth]{../lafusion/figures/lafusion_covariance_trace.png}
+\includegraphics[width=0.9\textwidth]{figures/lafusion_covariance_trace.png}
 \caption{Position-covariance saturation over time (step plots), all three
 scenarios, under two metrics (top: $\mathrm{trace}(P_{xy})$; bottom:
 $\lambda_{max}(P_{xy})$, the largest eigenvalue), following Censi's
