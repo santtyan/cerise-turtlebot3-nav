@@ -89,19 +89,19 @@ whether that violation matters in practice.
 
 We replace the discrete fallback with a per-robot EKF fusing odometry
 and YOLO-based visual detection, evaluated end-to-end on the same
-digital twin. Our contribution is twofold. First, validated in two
-stages, synthetic NEES/NIS and then real recorded data, the filter
-delivers a real fusion gain: $+23.7\%$ position error reduction at
-correction instants, under aggressive drift. Second, the same filter,
-measured continuously and not only at correction instants, is $12.7\%$
-worse than raw odometry under the sparse visual coverage (0--28\%) our
-camera exhibits in practice. We explain this reversal mechanistically,
-connecting it to established theory on Kalman filtering under
-intermittent
-observations~\cite{sinopoli2004intermittent,censi2009geometric}. We
-argue that reporting both metrics is necessary for honest
-characterization, and discuss why alternative filters do not resolve
-the underlying limitation.
+digital twin. Our contribution is twofold. Validated in two stages,
+synthetic NEES/NIS and then real recorded data, the filter delivers a
+real fusion gain: $+23.7\%$ position error reduction at correction
+instants, under aggressive drift. Yet the same filter, measured
+continuously and not only at correction instants, is $12.7\%$ worse
+than raw odometry under the sparse visual coverage (0--28\%) our
+camera exhibits in practice. The reversal is not an implementation
+defect: established theory on Kalman filtering under intermittent
+observations~\cite{sinopoli2004intermittent,censi2009geometric}
+predicts it mechanistically, which is why reporting both metrics,
+rather than only the correction-instant gain, is necessary for an
+honest characterization, and why alternative filters do not resolve
+the underlying limitation either.
 
 \section{Related Work}
 \label{sec:related-work}
@@ -374,15 +374,15 @@ but substantially smaller, indicating the reversal is driven mostly by
 error accumulating over time under sparse correction, not by
 step-to-step drift.
 
-Two observations explain this reversal. First, the degradation scales
+Two observations explain this reversal. The degradation scales
 inversely with YOLO coverage: Scenario 3 (0\% coverage) shows a change
 of exactly $0.0\%$, because with zero corrections the EKF's prediction
 degenerates to pure odometry-delta integration, mathematically
 identical to the unfused baseline. Scenarios 1 and 2 (27.6\% and
-11.3\% coverage) show similar $\sim$19\% degradation despite different
-coverage levels, suggesting the effect saturates quickly once
-corrections become sparse enough for the covariance ceiling
-(Section~\ref{sec:methodology}) to bind.
+11.3\% coverage), despite their different coverage levels, show
+similar $\sim$19\% degradation, suggesting the effect saturates
+quickly once corrections become sparse enough for the covariance
+ceiling (Section~\ref{sec:methodology}) to bind.
 
 \begin{figure}[t]
 \centering
@@ -404,7 +404,7 @@ zero-coverage case.}
 \label{fig:covariance-trace}
 \end{figure}
 
-Second, and mechanistically explaining the first,
+Mechanistically explaining the first observation,
 Fig.~\ref{fig:covariance-trace} shows why: $\mathrm{trace}(P)$
 saturates at the covariance ceiling almost immediately after any gap
 without correction, and only drops when a correction lands. In
@@ -453,7 +453,7 @@ widens the acceptance region precisely when true uncertainty is least
 well characterized by a fixed value, though we did not observe
 incorrect cross-robot association in our three scenarios.
 
-We tested this trade-off directly rather than only arguing it. A
+This trade-off was tested directly rather than only argued. A
 fading factor (Adaptive Fading Kalman Filter), the textbook-correct
 alternative because it preserves the positive semi-definite structure
 of $P$, was implemented and evaluated under the same protocol. Without
