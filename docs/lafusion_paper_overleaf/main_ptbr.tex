@@ -44,34 +44,28 @@
 \maketitle
 
 \begin{abstract}
-No gêmeo digital estudado aqui, sistemas multi-robô que combinam
-odometria com detecção visual externa recorriam a um fallback
-discreto: confiar na detecção quando disponível, na odometria caso
-contrário. Essa abordagem descarta a incerteza de cada estimativa e
-não oferece um comportamento bem definido durante lacunas de detecção.
-Para resolver isso, substituímos o fallback por um Filtro de Kalman
-Estendido (EKF) por robô, fundindo odometria e detecção visual
-baseada em YOLO a partir de uma câmera fixa suspensa, validado em
-duas etapas: primeiro consistência estatística em dados sintéticos
-(NEES/NIS), depois avaliação em dados reais gravados, num gêmeo
-digital ROS2/Gazebo com três robôs TurtleBot3.
+Sistemas multi-robô que combinam odometria e detecção visual externa
+costumam usar um fallback discreto: detecção quando disponível,
+odometria caso contrário, descartando incerteza e deixando o
+comportamento indefinido em lacunas de detecção. Substituímos isso por
+um EKF por robô, fundindo odometria e detecção YOLO de uma câmera fixa
+suspensa, validado em duas etapas: consistência estatística sintética
+(NEES/NIS), depois dados reais de um gêmeo digital ROS2/Gazebo com
+três TurtleBot3.
 
-O resultado depende de como o erro é medido. Nos instantes de
-correção, o filtro reduz o erro de posição em $+23,7\%$ em relação à
-odometria isolada sob deriva agressiva, o ganho que a literatura
-tipicamente reporta. Mas, medido continuamente, a cada leitura de
-odometria, o mesmo filtro é $12,7\%$ \emph{pior} que a odometria bruta,
-sob a cobertura visual esparsa (0--28\%) que nossa câmera exibe na
-prática. Mostramos que essa reversão de sinal é a consequência
-esperada de operar abaixo de uma taxa crítica de observação, não uma
-falha de projeto, e a conectamos mecanicamente a um teto de
-covariância necessário para manter estável a associação por gating de
-Mahalanobis. Reportar as duas métricas, e não apenas o ganho pontual
-comumente citado, é necessário para caracterizar honestamente a fusão
-por EKF sob observação esparsa; discutimos também por que filtros
-alternativos (UKF, filtro de partículas, IMM) não resolvem essa
-limitação, já que ela decorre da taxa de observação, não da escolha
-do filtro.
+O resultado depende de como o erro é medido. No instante de correção,
+o filtro reduz o erro de posição em $+23,7\%$ sob deriva agressiva, o
+ganho que a literatura tipicamente reporta. Mas, medido continuamente,
+a cada leitura de odometria, o mesmo filtro é $12,7\%$ \emph{pior} que
+a odometria bruta, sob a cobertura visual esparsa
+(0--28\%) que nossa câmera exibe na prática. Essa reversão é esperada
+ao operar abaixo de uma taxa crítica de observação, não uma falha de
+projeto, conectando-se a um teto de covariância que estabiliza o
+gating de Mahalanobis. Reportar as duas
+métricas, não só o ganho pontual comumente citado, é necessário para
+caracterizar honestamente a fusão sob observação esparsa; filtros
+alternativos (UKF, partículas, IMM) também não resolvem, pois a
+limitação vem da taxa de observação, não do filtro.
 
 \keywords{Filtro de Kalman Estendido \and Observações Intermitentes \and Localização Cooperativa \and Fusão Sensorial Assíncrona \and Localização Multi-Robô}
 \end{abstract}

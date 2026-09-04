@@ -41,32 +41,29 @@
 \maketitle
 
 \begin{abstract}
-In the digital twin studied here, multi-robot systems combining
-odometry with external visual detection relied on a discrete fallback:
-trusting detection when available, odometry otherwise. This approach
-discards the uncertainty of each estimate and offers no well-defined
-behavior during detection gaps. To address this, we replace the
-fallback with a per-robot Extended Kalman Filter fusing odometry and
-YOLO-based visual detection from a fixed overhead camera, validated in
-two stages: first statistical consistency on synthetic data
-(NEES/NIS), then evaluation on real recorded data, on a ROS2/Gazebo
-digital twin with three TurtleBot3 robots.
+Multi-robot systems combining odometry with external visual detection
+often rely on a discrete fallback: trusting detection when available,
+odometry otherwise, discarding uncertainty and leaving behavior
+undefined during detection gaps. We replace it with a per-robot
+Extended Kalman Filter fusing odometry and YOLO-based visual detection
+from a fixed overhead camera, validated in two stages: synthetic
+statistical consistency (NEES/NIS), then real recorded data from a
+ROS2/Gazebo digital twin with three TurtleBot3 robots.
 
 The result depends on how error is measured. At correction instants,
 the filter reduces position error by $+23.7\%$ relative to odometry
 alone under aggressive drift, the gain the literature typically
 reports. But measured continuously, at every odometry reading, the
 same filter is $12.7\%$ \emph{worse} than raw odometry, under the
-sparse visual coverage (0--28\%) our camera exhibits in practice. We
-show this sign reversal is the expected consequence of operating below
-a critical observation rate, not a design flaw, and connect it
+sparse visual coverage (0--28\%) our camera exhibits in practice. This
+sign reversal is the expected consequence of operating below a
+critical observation rate, not a design flaw, and connects
 mechanistically to a covariance ceiling required to keep
-Mahalanobis-gated association stable. Reporting both metrics, rather
-than only the commonly cited correction-instant gain, is necessary to
-honestly characterize EKF fusion under sparse observation; we also
-discuss why alternative filters (UKF, particle filter, IMM) do not
-resolve this limitation, since it stems from the observation rate, not
-the choice of filter.
+Mahalanobis-gated association stable. Reporting both metrics, not only
+the commonly cited correction-instant gain, is necessary to honestly
+characterize EKF fusion under sparse observation; alternative filters
+(UKF, particle filter, IMM) do not resolve this either, since the
+limitation stems from observation rate, not filter choice.
 
 \keywords{Extended Kalman Filter \and Intermittent Observations \and Cooperative Localization \and Asynchronous Sensor Fusion \and Multi-Robot Localization}
 \end{abstract}
