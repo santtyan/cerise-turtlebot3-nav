@@ -19,7 +19,7 @@
 
 \begin{document}
 
-\title{Caracterização da Fusão por Filtro de Kalman Estendido entre Detecção Visual e Odometria sob Observação Esparsa: um Estudo de Caso em Gêmeo Digital Multi-Robô}
+\title{Fusão por Filtro de Kalman Estendido de Detecção Visual e Odometria sob Observação Esparsa: um Estudo de Caso em Gêmeo Digital Multi-Robô}
 
 \titlerunning{Fusão EKF sob Observação Esparsa}
 
@@ -34,28 +34,34 @@
 \maketitle
 
 \begin{abstract}
-Sistemas multi-robô que combinam odometria com detecção visual externa
-costumam recorrer a um fallback discreto: confiar na detecção quando
-disponível, na odometria caso contrário. Isso descarta informação de
-incerteza e não oferece comportamento principiado durante lacunas de
-detecção. Substituímos isso por um Filtro de Kalman Estendido (EKF)
-por robô, fundindo odometria e detecção visual baseada em YOLO a
-partir de uma câmera fixa suspensa, validado em duas etapas (NEES/NIS
-sintético, depois dados reais gravados) em um gêmeo digital
-ROS2/Gazebo com três robôs TurtleBot3. Medido nos instantes de
+No gêmeo digital estudado aqui, sistemas multi-robô que combinam
+odometria com detecção visual externa recorriam a um fallback
+discreto: confiar na detecção quando disponível, na odometria caso
+contrário. Essa abordagem descarta a incerteza de cada estimativa e
+não oferece um comportamento bem definido durante lacunas de detecção.
+Para resolver isso, substituímos o fallback por um Filtro de Kalman
+Estendido (EKF) por robô, fundindo odometria e detecção visual
+baseada em YOLO a partir de uma câmera fixa suspensa, validado em
+duas etapas: primeiro consistência estatística em dados sintéticos
+(NEES/NIS), depois avaliação em dados reais gravados, num gêmeo
+digital ROS2/Gazebo com três robôs TurtleBot3.
+
+O resultado depende de como o erro é medido. Nos instantes de
 correção, o filtro reduz o erro de posição em $+23,7\%$ em relação à
-odometria isolada sob deriva agressiva. Medido continuamente, a cada
-leitura de odometria, o mesmo filtro é $12,7\%$ \emph{pior} que a
-odometria bruta sob a cobertura visual esparsa (0--28\%) que nossa
-câmera exibe na prática. Mostramos que essa reversão é a consequência
+odometria isolada sob deriva agressiva, o ganho que a literatura
+tipicamente reporta. Mas, medido continuamente, a cada leitura de
+odometria, o mesmo filtro é $12,7\%$ \emph{pior} que a odometria bruta,
+sob a cobertura visual esparsa (0--28\%) que nossa câmera exibe na
+prática. Mostramos que essa reversão de sinal é a consequência
 esperada de operar abaixo de uma taxa crítica de observação, não uma
 falha de projeto, e a conectamos mecanicamente a um teto de
 covariância necessário para manter estável a associação por gating de
-Mahalanobis. Reportar ambas as métricas, em vez de apenas o ganho no
-instante de correção comumente reportado, é necessário para
-caracterizar honestamente a fusão por EKF sob observação esparsa;
-também discutimos por que filtros alternativos (UKF, filtro de
-partículas, IMM) não resolvem a limitação subjacente.
+Mahalanobis. Reportar as duas métricas, e não apenas o ganho pontual
+comumente citado, é necessário para caracterizar honestamente a fusão
+por EKF sob observação esparsa; discutimos também por que filtros
+alternativos (UKF, filtro de partículas, IMM) não resolvem essa
+limitação, já que ela decorre da taxa de observação, não da escolha
+do filtro.
 
 \keywords{Filtro de Kalman Estendido \and Observações Intermitentes \and Localização Cooperativa \and Fusão Sensorial Assíncrona \and Localização Multi-Robô}
 \end{abstract}
@@ -65,40 +71,40 @@ partículas, IMM) não resolvem a limitação subjacente.
 Câmeras fixas suspensas observando múltiplos robôs móveis são
 infraestrutura comum em automação de armazéns, coordenação de frotas
 em ambientes internos e monitoramento de ambientes inteligentes, onde
-instalar uma carga sensorial dedicada em cada robô é custoso ou
+instalar uma carga sensorial dedicada em cada robô é custosa ou
 inviável. Sistemas multi-robô que combinam odometria embarcada com
 essa detecção visual externa enfrentam uma escolha recorrente: como
-combinar duas estimativas de posição ruidosas, chegando em taxas
-diferentes, nem sempre disponíveis no mesmo instante. Uma solução
-comum e pragmática, usada no gêmeo digital estudado aqui antes de
-nossa contribuição, é um \emph{fallback discreto}: confiar na detecção
-quando associada com confiança, na odometria caso contrário. Isso
-descarta informação: nenhuma correção parcial a partir de detecções de
-baixa confiança, nenhuma propagação de incerteza, nenhum comportamento
-principiado durante trechos sem detecção.
+combinar duas estimativas de posição ruidosas, que chegam em taxas
+diferentes e nem sempre estão disponíveis no mesmo instante. Uma
+solução comum e pragmática, usada no gêmeo digital estudado aqui antes
+de nossa contribuição, é um \emph{fallback discreto}: confiar na
+detecção quando associada com confiança, na odometria caso contrário.
+Essa abordagem descarta informação: não há correção parcial a partir
+de detecções de baixa confiança, nem propagação de incerteza, nem
+comportamento bem definido durante trechos sem detecção.
 
-A Filtragem de Kalman Estendida (EKF) é a resposta clássica,
-oferecendo predição/correção probabilística completa com propagação
-explícita de incerteza. Suas propriedades de convergência, no entanto,
-são classicamente estabelecidas sob observação razoavelmente densa e
-regular~\cite{dissanayake2001slam}, uma suposição que uma única câmera
-fixa suspensa, sujeita a campo de visão finito e auto-oclusão durante
-manobras, não satisfaz em geral. Se isso importa na prática é a
-pergunta que este trabalho investiga.
+A Filtragem de Kalman Estendida (EKF) é a resposta clássica a esse
+problema, oferecendo predição e correção probabilística com
+propagação explícita de incerteza. Suas propriedades de convergência,
+no entanto, são classicamente estabelecidas sob observação
+razoavelmente densa e regular~\cite{dissanayake2001slam}, uma
+suposição que uma única câmera fixa suspensa, sujeita a campo de
+visão finito e auto-oclusão durante manobras, não satisfaz em geral.
+Este trabalho investiga se essa violação importa na prática.
 
 Substituímos o fallback discreto por um EKF por robô, fundindo
 odometria e detecção visual baseada em YOLO, avaliado de ponta a ponta
-no mesmo gêmeo digital. Nossa contribuição é dupla: (1) validado em
-duas etapas (NEES/NIS sintético, depois dados reais gravados), o
-filtro entrega um ganho de fusão real ($+23,7\%$ de redução do erro de
-posição nos instantes de correção, sob deriva agressiva); (2) o mesmo
-filtro medido continuamente, não apenas nos instantes de correção, é
-$12,7\%$ \emph{pior} que a odometria bruta sob a cobertura visual
-esparsa (0--28\%) que nossa câmera exibe na prática. Explicamos essa
-reversão mecanicamente, conectando-a à teoria já estabelecida sobre
-filtragem de Kalman sob observações
-intermitentes~\cite{sinopoli2004intermittent,censi2009geometric},
-argumentamos que reportar ambas as métricas é necessário para uma
+no mesmo gêmeo digital. Nossa contribuição é dupla. Primeiro,
+validado em duas etapas, NEES/NIS sintético e depois dados reais
+gravados, o filtro entrega um ganho de fusão real: $+23,7\%$ de
+redução do erro de posição nos instantes de correção, sob deriva
+agressiva. Segundo, o mesmo filtro, medido continuamente e não apenas
+nos instantes de correção, é $12,7\%$ pior que a odometria bruta sob
+a cobertura visual esparsa (0--28\%) que nossa câmera exibe na
+prática. Explicamos essa reversão mecanicamente, conectando-a à
+teoria já estabelecida sobre filtragem de Kalman sob observações
+intermitentes~\cite{sinopoli2004intermittent,censi2009geometric}.
+Argumentamos que reportar ambas as métricas é necessário para uma
 caracterização honesta, e discutimos por que filtros alternativos não
 resolvem a limitação subjacente.
 
@@ -115,9 +121,9 @@ nossa câmera com 0--28\% de cobertura viola por construção (central à
 Seção~\ref{sec:discussion}). Sinopoli et
 al.~\cite{sinopoli2004intermittent} estabelecem que, sob chegada de
 observação de Bernoulli, a covariância diverge abaixo de uma taxa
-crítica; nosso Cenário~3 (0\% de cobertura) situa-se no caso limite
-$p\to0$, de modo que a saturação observada é teoricamente esperada,
-não um sintoma de má configuração. Censi~\cite{censi2009geometric}
+crítica; nosso Cenário~3 (0\% de cobertura observada) é consistente
+com o caso limite $p\to0$, de modo que a saturação observada é
+teoricamente esperada, não um sintoma de má configuração. Censi~\cite{censi2009geometric}
 observa que esse limiar crítico depende da métrica de resumo de
 covariância usada; reportamos $\mathrm{trace}(P)$ como uma escolha de
 escopo, não uma alegação de independência de métrica.
@@ -151,7 +157,7 @@ com este trabalho (Seção~\ref{sec:experimental-setup}). Esta cobertura
 reflete busca direcionada, não uma revisão sistemática da literatura
 com protocolo registrado; uma revisão formal continua em aberto.
 
-\section{Metodologia}
+\section{Método}
 \label{sec:methodology}
 
 Seguindo Durrant-Whyte e Bailey~\cite{bailey2006slam}, cada robô é
@@ -228,9 +234,8 @@ detecções YOLO reais gravadas do gêmeo digital ao vivo, onde a
 cobertura de observação é esparsa e irregular por construção, não por
 escolha de projeto.
 
-\section{Configuração Experimental}
+\textbf{Configuração experimental.}
 \label{sec:experimental-setup}
-
 Avaliamos nosso EKF em um gêmeo digital ROS2/Gazebo: três unidades
 TurtleBot3 Waffle junto a uma câmera fixa suspensa em $(0,0,3)$\,m,
 $90^\circ$ de inclinação para baixo, $60^\circ$ de campo de visão
@@ -241,6 +246,19 @@ treinado em 375 quadros anotados da mesma câmera,
 $\mathrm{mAP@0.5}=0,995$; a confiança é carregada no campo $z$ de
 outra forma não utilizado da mensagem de detecção, para consumo
 direto pela etapa de correção do EKF.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.55\textwidth]{figures/lafusion_pipeline_yolo_detection.jpg}
+\caption{Vista aérea da câmera fixa sobre os três robôs TurtleBot3,
+com as caixas delimitadoras e a confiança de detecção do modelo YOLO
+sobrepostas em tempo real.}
+\label{fig:yolo-detection}
+\end{figure}
+
+A Fig.~\ref{fig:yolo-detection} mostra a saída real desse pipeline de
+detecção: os três robôs, vistos pela câmera fixa suspensa, com as
+caixas delimitadoras e a confiança do YOLO sobrepostas.
 
 Três cenários de $\sim$18\,s foram gravados como bags ROS2/MCAP: (a)
 \textbf{Estacionário}: 152 detecções vs.\ 550 leituras de
@@ -260,7 +278,7 @@ documentamos uma dependência não óbvia:
 \texttt{ros-humble-rosbag2-storage-mcap} não vem instalado por padrão
 no ROS2 Humble.
 
-\section{Resultados}
+\section{Resultados e Discussão}
 \label{sec:results}
 
 Reportamos duas métricas de erro distintas, deliberadamente mantidas
@@ -272,8 +290,7 @@ independentemente de correção. Essas duas métricas discordam em
 sinal, e ambas são necessárias para caracterizar honestamente o
 comportamento do filtro sob observação esparsa.
 
-\subsection{Erro no Instante de Correção}
-
+\textbf{Erro no instante de correção.}
 A validação NEES/NIS sintética (Seção~\ref{sec:methodology}) confirma
 que o filtro está bem calibrado antes de qualquer avaliação com dados
 reais (Fig.~\ref{fig:nees-nis}, NEES$\to 3,0$, NIS$\to 2,0$).
@@ -427,9 +444,8 @@ correção: o filtro permanece superconfiante em sua predição baseada
 apenas em odometria, em relação a quão incerta essa predição realmente
 é.
 
-\section{Discussão e Trabalhos Futuros}
+\textbf{Discussão.}
 \label{sec:discussion}
-
 A leitura natural da Tabela~\ref{tab:continuous-error} é desfavorável:
 nosso EKF, avaliado continuamente, perde para a odometria que deveria
 melhorar. Argumentamos que isso é esperado, não um projeto falho. A
@@ -486,6 +502,8 @@ detecção de um robô vizinho, o mesmo modo de falha que o clip existe
 para evitar. Reportamos isso como evidência empírica, não apenas
 justificativa teórica, para a escolha do clip.
 
+\section{Trabalhos Futuros e Conclusão}
+
 \textbf{Trabalhos futuros.}
 \label{sec:future-work}
 Direções concretas incluem: (a) \textbf{ruído de processo adaptativo}:
@@ -502,8 +520,7 @@ sem câmera de Dobrynin e Garcia~\cite{dobrynin2025turtlebot} na mesma
 plataforma poderia fornecer um segundo canal de correção durante
 lacunas de cobertura visual.
 
-\section{Conclusão}
-
+\textbf{Conclusão.}
 Substituímos um fallback discreto visual/odometria por um Filtro de
 Kalman Estendido validado em duas etapas, avaliado em dados reais
 gravados de três robôs TurtleBot3. O filtro entrega um ganho genuíno

@@ -17,7 +17,7 @@
 
 \begin{document}
 
-\title{Characterizing Extended Kalman Filter Fusion of Visual Detection and Odometry Under Sparse Observation: A Multi-Robot Digital Twin Case Study}
+\title{Extended Kalman Filter Fusion of Visual Detection and Odometry Under Sparse Observation: A Multi-Robot Digital Twin Case Study}
 
 \titlerunning{EKF Fusion Under Sparse Observation}
 
@@ -32,26 +32,32 @@
 \maketitle
 
 \begin{abstract}
-Multi-robot systems combining odometry with external visual detection
-often rely on a discrete fallback: trusting detection when available,
-odometry otherwise. This discards uncertainty information and offers
-no principled behavior during detection gaps. We replace it with a
-per-robot Extended Kalman Filter fusing odometry and YOLO-based visual
-detection from a fixed overhead camera, validated in two stages
-(synthetic NEES/NIS, then real recorded data) on a ROS2/Gazebo digital
-twin with three TurtleBot3 robots. Measured at correction instants, the
-filter reduces position error by $+23.7\%$ relative to odometry alone
-under aggressive drift. Measured continuously, at every odometry
-reading, the same filter is $12.7\%$ \emph{worse} than raw odometry
-under the sparse visual coverage (0--28\%) our camera exhibits in
-practice. We show this reversal is the expected consequence of
-operating below a critical observation rate, not a design flaw, and
-connect it mechanistically to a covariance ceiling required to keep
+In the digital twin studied here, multi-robot systems combining
+odometry with external visual detection relied on a discrete fallback:
+trusting detection when available, odometry otherwise. This approach
+discards the uncertainty of each estimate and offers no well-defined
+behavior during detection gaps. To address this, we replace the
+fallback with a per-robot Extended Kalman Filter fusing odometry and
+YOLO-based visual detection from a fixed overhead camera, validated in
+two stages: first statistical consistency on synthetic data
+(NEES/NIS), then evaluation on real recorded data, on a ROS2/Gazebo
+digital twin with three TurtleBot3 robots.
+
+The result depends on how error is measured. At correction instants,
+the filter reduces position error by $+23.7\%$ relative to odometry
+alone under aggressive drift, the gain the literature typically
+reports. But measured continuously, at every odometry reading, the
+same filter is $12.7\%$ \emph{worse} than raw odometry, under the
+sparse visual coverage (0--28\%) our camera exhibits in practice. We
+show this sign reversal is the expected consequence of operating below
+a critical observation rate, not a design flaw, and connect it
+mechanistically to a covariance ceiling required to keep
 Mahalanobis-gated association stable. Reporting both metrics, rather
-than only the commonly reported correction-instant gain, is necessary
-to honestly characterize EKF fusion under sparse observation; we also
+than only the commonly cited correction-instant gain, is necessary to
+honestly characterize EKF fusion under sparse observation; we also
 discuss why alternative filters (UKF, particle filter, IMM) do not
-resolve the underlying limitation.
+resolve this limitation, since it stems from the observation rate, not
+the choice of filter.
 
 \keywords{Extended Kalman Filter \and Intermittent Observations \and Cooperative Localization \and Asynchronous Sensor Fusion \and Multi-Robot Localization}
 \end{abstract}
@@ -63,39 +69,39 @@ infrastructure in warehouse automation, indoor fleet coordination, and
 smart-environment monitoring, where installing a dedicated sensor
 payload on every robot is costly or impractical. Multi-robot systems
 combining onboard odometry with such external visual detection face a
-recurring choice: how to combine two noisy position estimates arriving
-at different rates, not always available at the same instant. A
-common, pragmatic solution, used in the digital twin studied here
-prior to our contribution, is a \emph{discrete fallback}: trust
-detection when confidently associated, odometry otherwise. This
-discards information: no partial correction from low-confidence
-detections, no uncertainty propagation, no principled behavior during
-detection-free stretches.
+recurring choice: how to combine two noisy position estimates that
+arrive at different rates and are not always available at the same
+instant. A common, pragmatic solution, used in the digital twin
+studied here prior to our contribution, is a \emph{discrete fallback}:
+trust detection when confidently associated, odometry otherwise. This
+approach discards information: no partial correction from
+low-confidence detections, no uncertainty propagation, no
+well-defined behavior during detection-free stretches.
 
-Extended Kalman Filtering (EKF) is the classical answer, offering full
-probabilistic prediction/correction with explicit uncertainty
-propagation. Its convergence properties, however, are classically
-established under reasonably dense, regular
+Extended Kalman Filtering (EKF) is the classical answer to this
+problem, offering full probabilistic prediction and correction with
+explicit uncertainty propagation. Its convergence properties, however,
+are classically established under reasonably dense, regular
 observation~\cite{dissanayake2001slam}, an assumption a single fixed
 overhead camera, subject to finite field of view and self-occlusion
-during maneuvers, does not generally satisfy. Whether this matters in
-practice is the question this paper investigates.
+during maneuvers, does not generally satisfy. This paper investigates
+whether that violation matters in practice.
 
 We replace the discrete fallback with a per-robot EKF fusing odometry
 and YOLO-based visual detection, evaluated end-to-end on the same
-digital twin. Our contribution is twofold: (1) validated in two stages
-(synthetic NEES/NIS, then real recorded data), the filter delivers a
-real fusion gain ($+23.7\%$ position error reduction at correction
-instants, under aggressive drift); (2) the same filter measured
-continuously, not only at correction instants, is $12.7\%$
-\emph{worse} than raw odometry under the sparse visual coverage
-(0--28\%) our camera exhibits in practice. We explain this reversal
-mechanistically, connecting it to established theory on Kalman
-filtering under intermittent
-observations~\cite{sinopoli2004intermittent,censi2009geometric}, argue
-that reporting both metrics is necessary for honest characterization,
-and discuss why alternative filters do not resolve the underlying
-limitation.
+digital twin. Our contribution is twofold. First, validated in two
+stages, synthetic NEES/NIS and then real recorded data, the filter
+delivers a real fusion gain: $+23.7\%$ position error reduction at
+correction instants, under aggressive drift. Second, the same filter,
+measured continuously and not only at correction instants, is $12.7\%$
+worse than raw odometry under the sparse visual coverage (0--28\%) our
+camera exhibits in practice. We explain this reversal mechanistically,
+connecting it to established theory on Kalman filtering under
+intermittent
+observations~\cite{sinopoli2004intermittent,censi2009geometric}. We
+argue that reporting both metrics is necessary for honest
+characterization, and discuss why alternative filters do not resolve
+the underlying limitation.
 
 \section{Related Work}
 \label{sec:related-work}
@@ -110,9 +116,9 @@ under \emph{dense} landmark observation, an assumption our
 Section~\ref{sec:discussion}). Sinopoli et
 al.~\cite{sinopoli2004intermittent} establish that, under Bernoulli
 observation arrival, covariance diverges below a critical rate; our
-Scenario~3 (0\% coverage) sits at the limiting case $p\to0$, so the
-saturation we observe is theoretically expected, not a symptom of
-misconfiguration. Censi~\cite{censi2009geometric} notes this critical
+Scenario~3 (0\% observed coverage) is consistent with the limiting
+case $p\to0$, so the saturation we observe is theoretically expected,
+not a symptom of misconfiguration. Censi~\cite{censi2009geometric} notes this critical
 threshold depends on the covariance summary metric used; we report
 $\mathrm{trace}(P)$ as a scoping choice, not a claim of
 metric-independence.
@@ -144,7 +150,7 @@ motivates the recorded dataset released with this work
 targeted search, not a systematic literature review with a registered
 protocol; a formal survey remains open.
 
-\section{Methodology}
+\section{Method}
 \label{sec:methodology}
 
 Following Durrant-Whyte and Bailey~\cite{bailey2006slam}, each robot is
@@ -217,9 +223,8 @@ real odometry and YOLO detections recorded from the live digital twin,
 where observation coverage is sparse and irregular by construction,
 not by design choice.
 
-\section{Experimental Setup}
+\textbf{Experimental setup.}
 \label{sec:experimental-setup}
-
 We evaluate our EKF in a ROS2/Gazebo digital twin: three TurtleBot3
 Waffle units alongside a static overhead camera at $(0,0,3)$\,m,
 $90^\circ$ downward pitch, $60^\circ$ horizontal FOV,
@@ -230,6 +235,19 @@ trained on 375 annotated frames from the same camera,
 $\mathrm{mAP@0.5}=0.995$; confidence is carried in the detection
 message's otherwise-unused $z$ field for direct consumption by the EKF
 correction step.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.55\textwidth]{figures/lafusion_pipeline_yolo_detection.jpg}
+\caption{Overhead view from the fixed camera over the three TurtleBot3
+robots, with YOLO's bounding boxes and detection confidence overlaid
+in real time.}
+\label{fig:yolo-detection}
+\end{figure}
+
+Fig.~\ref{fig:yolo-detection} shows the actual output of this
+detection pipeline: the three robots, as seen by the fixed overhead
+camera, with YOLO's bounding boxes and confidence overlaid.
 
 Three $\sim$18\,s scenarios were recorded as ROS2/MCAP bags: (a)
 \textbf{Stationary}: 152 detections vs.\ 550 odometry readings/robot,
@@ -248,7 +266,7 @@ EKF hyperparameters, code commit SHA) and document one non-obvious
 dependency: \texttt{ros-humble-rosbag2-storage-mcap} is not installed
 by default on ROS2 Humble.
 
-\section{Results}
+\section{Results and Discussion}
 \label{sec:results}
 
 We report two distinct error metrics, deliberately kept separate:
@@ -259,8 +277,7 @@ measured at every odometry reading regardless of correction. These two
 metrics disagree in sign, and both are necessary to honestly
 characterize the filter's behavior under sparse observation.
 
-\subsection{Correction-Instant Error}
-
+\textbf{Correction-instant error.}
 The synthetic NEES/NIS validation (Section~\ref{sec:methodology})
 confirms the filter is well-calibrated before any real-data evaluation
 (Fig.~\ref{fig:nees-nis}, NEES$\to 3.0$, NIS$\to 2.0$).
@@ -411,9 +428,8 @@ the uncorrected interval: the filter remains overconfident in its
 odometry-only prediction relative to how uncertain that prediction
 actually is.
 
-\section{Discussion and Future Work}
+\textbf{Discussion.}
 \label{sec:discussion}
-
 The natural reading of Table~\ref{tab:continuous-error} is
 unflattering: our EKF, evaluated continuously, loses to the odometry
 it should improve upon. We argue this is expected, not a flawed
@@ -466,6 +482,8 @@ neighboring robot's detection, the same failure mode the clip exists
 to prevent. We report this as empirical evidence, not only theoretical
 justification, for choosing the clip.
 
+\section{Future Work and Conclusion}
+
 \textbf{Future work.}
 \label{sec:future-work}
 Concrete directions include: (a) \textbf{adaptive process noise}:
@@ -482,8 +500,7 @@ Garcia's~\cite{dobrynin2025turtlebot} camera-free filtering on the
 same platform could provide a second correction channel during
 visual-coverage gaps.
 
-\section{Conclusion}
-
+\textbf{Conclusion.}
 We replaced a discrete visual/odometry fallback with a two-stage
 validated Extended Kalman Filter, evaluated on real recorded data from
 three TurtleBot3 robots. The filter delivers a genuine gain at
