@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Digital twin research project (UFG/EMC, advisor Alisson Assis Cardoso) with two independent papers sharing the same ROS2/Gazebo codebase and three-TurtleBot3 platform:
 - **LARS 2026** (`docs/paper_lars/`, submitted — the actually-submitted PDF/source is `docs/paper_lars/SUBMISSAO_FINAL_2026-08-05/`, per its own `LEIA-ME.md`; the other subfolders there are earlier drafting rounds) — PPO reinforcement learning for multi-robot task allocation (MRTA), grounded in a camera+YOLO digital twin. Central finding is a *negative result*: PPO does not beat the greedy `nearest-free` heuristic, and a causal test (action masking) refutes the leading explanation for the gap.
-- **LAFusion 2026** (`docs/lafusion_paper/`, in progress, deadline 2026-09-04) — Extended Kalman Filter fusing YOLO visual detection with odometry, replacing a discrete fallback. Reports both a correction-instant gain (+23.7%) and a continuous-error degradation (-12.7%) under sparse visual coverage, grounded in Kalman-filtering-under-intermittent-observations theory.
+- **LAFusion 2026** (`docs/lafusion_paper/`, submitted 2026-09-04, decision pending 2026-10-05) — Extended Kalman Filter fusing YOLO visual detection with odometry, replacing a discrete fallback. Reports both a correction-instant gain (+23.7%) and a continuous-error degradation (-12.7%) under sparse visual coverage, grounded in Kalman-filtering-under-intermittent-observations theory.
 
 ## Build and test
 
